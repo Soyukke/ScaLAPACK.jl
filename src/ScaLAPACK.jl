@@ -2,11 +2,11 @@ using MPI
 
 module ScaLAPACK
 
+export svdvals!
+
 using Compat
-
-using Base.LinAlg: BlasFloat, BlasReal
-
-using MPI, DistributedArrays
+using LinearAlgebra: BlasFloat, BlasReal
+using MPI, Distributed, DistributedArrays
 
 import DistributedArrays: DArray, defaultdist
 # this should only be a temporary solution until procs returns a type that encodes more information about the processes
@@ -28,13 +28,13 @@ if myid() > 1
     MPI.Initialized() || MPI.Init()
 end
 
-immutable ScaLAPACKException <: Exception
+struct ScaLAPACKException <: Exception
     info::Int32
 end
 
 # const libscalapack = "/Users/andreasnoack/Downloads/scalapack-2.0.2/build/lib/libscalapack.dylib"
-const libscalapack = "/usr/local/lib/libscalapack.dylib"
-# const libscalapack = "/usr/lib/libscalapack-openmpi.so"
+# const libscalapack = "/usr/local/lib/libscalapack.dylib"
+const libscalapack = "/usr/lib/libscalapack-openmpi.so"
 
 include("blacs.jl")
 include("scalapackWrappers.jl")

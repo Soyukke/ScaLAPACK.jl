@@ -1,4 +1,4 @@
-typealias ScaInt Int32 # Fixme! Have to find a way of detecting if this is always the case
+ScaInt = Int32 # Fixme! Have to find a way of detecting if this is always the case
 
 #############
 # Auxiliary #
@@ -7,9 +7,9 @@ typealias ScaInt Int32 # Fixme! Have to find a way of detecting if this is alway
 # Initialize
 function sl_init(nprow::Integer, npcol::Integer)
     ictxt = Array(ScaInt, 1)
-    ccall((:sl_init_, libscalapack), Void,
+    ccall((:sl_init_, libscalapack), Cvoid,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-        ictxt, &nprow, &npcol)
+        ictxt, Ref{nprow}, Ref{npcol})
     return ictxt[1]
 end
 
@@ -17,7 +17,7 @@ end
 function numroc(n::Integer, nb::Integer, iproc::Integer, isrcproc::Integer, nprocs::Integer)
     ccall((:numroc_, libscalapack), ScaInt,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-        &n, &nb, &iproc, &isrcproc, &nprocs)
+        Ref{n}, Ref{nb}, Ref{iproc}, Ref{isrcproc}, Ref{nprocs})
 end
 
 # Array descriptor
@@ -41,13 +41,13 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     info = Array(ScaInt, 1)
 
     # ccall
-    ccall((:descinit_, libscalapack), Void,
+    ccall((:descinit_, libscalapack), Cvoid,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
          Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
          Ptr{ScaInt}, Ptr{ScaInt}),
-        desc, &m, &n, &mb,
-        &nb, &irsrc, &icsrc, &ictxt,
-        &lld, info)
+        desc, Ref{m}, Ref{n}, Ref{mb},
+        Ref{nb}, Ref{irsrc}, Ref{icsrc}, Ref{ictxt},
+        Ref{lld}, info)
 
     info[1] == 0 || error("input argument $(info[1]) has illegal value")
 
@@ -57,18 +57,18 @@ end
 # Redistribute arrays
 for (fname, elty) in ((:psgemr2d_, :Float32),
                       (:pdgemr2d_, :Float64),
-                      (:pcgemr2d_, :Complex64),
-                      (:pzgemr2d_, :Complex128))
+                      (:pcgemr2d_, :ComplexF32),
+                      (:pzgemr2d_, :ComplexF64))
     @eval begin
         function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{ScaInt}, ictxt::Integer)
 
-            ccall(($(string(fname)), libscalapack), Void,
+            ccall(($(string(fname)), libscalapack), Cvoid,
                 (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-                &m, &n, A, &ia,
-                &ja, desca, B, &ib,
-                &jb, descb, &ictxt)
+                Ref{m}, Ref{n}, A, Ref{ia},
+                Ref{ja}, desca, B, Ref{ib},
+                Ref{jb}, descb, Ref{ictxt})
         end
     end
 end
@@ -80,22 +80,22 @@ end
 # Matmul
 for (fname, elty) in ((:psgemm_, :Float32),
                       (:pdgemm_, :Float64),
-                      (:pcgemm_, :Complex64),
-                      (:pzgemm_, :Complex128))
+                      (:pcgemm_, :ComplexF32),
+                      (:pzgemm_, :ComplexF64))
     @eval begin
         function pdgemm!(transa::Char, transb::Char, m::Integer, n::Integer, k::Integer, α::$elty, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{ScaInt}, β::$elty, C::Matrix{$elty}, ic::Integer, jc::Integer, descc::Vector{ScaInt})
 
-            ccall(($(string(fname)), libscalapack), Void,
+            ccall(($(string(fname)), libscalapack), Cvoid,
                 (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-                &transa, &transb, &m, &n,
-                &k, &α, A, &ia,
-                &ja, desca, B, &ib,
-                &jb, descb, &β, C,
-                &ic, &jc, descc)
+                Ref{transa}, Ref{transb}, Ref{m}, Ref{n},
+                Ref{k}, Ref{α}, A, Ref{ia},
+                Ref{ja}, desca, B, Ref{ib},
+                Ref{jb}, descb, Ref{β}, C,
+                Ref{ic}, Ref{jc}, descc)
         end
     end
 end
@@ -114,14 +114,14 @@ for (fname, elty) in ((:psstedc_, :Float32),
             info    = ScaInt[0]
 
             for i = 1:2
-                ccall(($(string(fname)), libscalapack), Void,
+                ccall(($(string(fname)), libscalapack), Cvoid,
                     (Ptr{UInt8}, Ptr{UInt8}, Ptr{$elty}, Ptr{$elty},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$ScaInt}),
-                    &compz, &n, d, e,
-                    Q, &iq, &jq, descq,
-                    work, &lwork, iwork, &liwork,
+                    Ref{compz}, Ref{n}, d, e,
+                    Q, Ref{iq}, Ref{jq}, descq,
+                    work, Ref{lwork}, iwork, Ref{liwork},
                     info)
 
                 if i == 1
@@ -153,17 +153,17 @@ for (fname, elty) in ((:psgesvd_, :Float32),
 
             # ccall
             for i = 1:2
-                ccall(($(string(fname)), libscalapack), Void,
+                ccall(($(string(fname)), libscalapack), Cvoid,
                     (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}),
-                    &jobu, &jobvt, &m, &n,
-                    A, &ia, &ja, desca,
-                    s, U, &iu, &ju,
-                    descu, Vt, &ivt, &jvt,
-                    descvt, work, &lwork, info)
+                    Ref{jobu}, Ref{jobvt}, Ref{m}, Ref{n},
+                    A, Ref{ia}, Ref{ja}, desca,
+                    s, U, Ref{iu}, Ref{ju},
+                    descu, Vt, Ref{ivt}, Ref{jvt},
+                    descvt, work, Ref{lwork}, info)
                 if i == 1
                     lwork = convert(ScaInt, work[1])
                     work = Array($elty, lwork)
@@ -178,8 +178,8 @@ for (fname, elty) in ((:psgesvd_, :Float32),
         end
     end
 end
-for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
-                             (:pzgesvd_, :Complex128, :Float64))
+for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
+                             (:pzgesvd_, :ComplexF64, :Float64))
     @eval begin
         function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, s::Vector{$relty}, U::Matrix{$elty}, iu::Integer, ju::Integer, descu::Vector{ScaInt}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{ScaInt})
             # extract values
@@ -194,18 +194,18 @@ for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
 
             # ccall
             for i = 1:2
-                ccall(($(string(fname)), libscalapack), Void,
+                ccall(($(string(fname)), libscalapack), Cvoid,
                     (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$relty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{$relty},
                      Ptr{ScaInt}),
-                    &jobu, &jobvt, &m, &n,
-                    A, &ia, &ja, desca,
-                    s, U, &iu, &ju,
-                    descu, Vt, &ivt, &jvt,
-                    descvt, work, &lwork, rwork,
+                    Ref{jobu}, Ref{jobvt}, Ref{m}, Ref{n},
+                    A, Ref{ia}, Ref{ja}, desca,
+                    s, U, Ref{iu}, Ref{ju},
+                    descu, Vt, Ref{ivt}, Ref{jvt},
+                    descvt, work, Ref{lwork}, rwork,
                     info)
                 if i == 1
                     lwork = convert(ScaInt, work[1])

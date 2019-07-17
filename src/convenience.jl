@@ -1,29 +1,31 @@
-import Base.LinAlg: svdvals!
+import LinearAlgebra: svdvals!
 
-function check_distribution{T}(A::DArray{T,2})
+function check_distribution(A::DArray{T, 2}) where T <: Number
     if !all(diff(diff(A.cuts[1]))[1:end-1] .== 0) || !all(diff(diff(A.cuts[2]))[1:end-1] .== 0)
         throw(ArgumentError("the distributions of the array does not fit to the requirements of ScaLAPACK. All blocks must have the same size except for the last in row and column"))
     end
-    if !(all(diff(Int[remotecall_fetch(MPI.Comm_rank, p, MPI.COMM_WORLD) for p in procs(A)]) .== 1))
+    # TODO ここ合っているかわからない procs(A) -> [procs(A)...]
+    if !(all(diff(Int[remotecall_fetch(MPI.Comm_rank, p, MPI.COMM_WORLD) for p in [procs(A)...]]) .== 1))
+        # MPIランクとmyid()の数字の大小関係の順番が同じである必要
         throw(ArgumentError("the ordering of the Julia processes and the MPI ranks must be the same. Consider constructing you DArray with an MPIManager argument instead of process numbers."))
     end
     true
 end
 
-function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2,Matrix{T}}, B::DArray{T,2,Matrix{T}}, β::T, C::DArray{T,2,Matrix{T}}, blocksize1 = max(round(Integer, size(C, 1)/100), 10), blocksize2 = max(round(Integer, size(C, 2)/100), 10))
+function A_mul_B!(α::T, A::DArray{T,2,Matrix{T}}, B::DArray{T,2,Matrix{T}}, β::T, C::DArray{T,2,Matrix{T}}, blocksize1 = max(round(Integer, size(C, 1)/100), 10), blocksize2 = max(round(Integer, size(C, 2)/100), 10)) where T <: BlasFloat
 
     # extract
     mA, nA = size(A)
     mB, nB = size(B)
     mC, nC = size(C)
     k = nA
-    mGrid, nGrid = size(A.chunks)
-    mbA = ceil(Int32, mA/size(A.chunks, 1))
-    nbA = ceil(Int32, nA/size(A.chunks, 2))
-    mbB = ceil(Int32, mB/size(B.chunks, 1))
-    nbB = ceil(Int32, nB/size(B.chunks, 2))
-    mbC = ceil(Int32, mC/size(C.chunks, 1))
-    nbC = ceil(Int32, nC/size(C.chunks, 2))
+    mGrid, nGrid = size(A.indices)
+    mbA = ceil(Int32, mA/size(A.indices, 1))
+    nbA = ceil(Int32, nA/size(A.indices, 2))
+    mbB = ceil(Int32, mB/size(B.indices, 1))
+    nbB = ceil(Int32, nB/size(B.indices, 2))
+    mbC = ceil(Int32, mC/size(C.indices, 1))
+    nbC = ceil(Int32, nC/size(C.indices, 2))
 
     # check
     if mA != mC || nA != mB || nB != nC
@@ -90,7 +92,7 @@ function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2,Matrix{T}}, B::DArray{T,2,M
     C
 end
 
-function eigvals!{T<:BlasReal}(d::Vector{T}, e::Vector{T}, blocksize = max(div(length(d), 100), 10))
+function eigvals!(d::Vector{T}, e::Vector{T}, blocksize = max(div(length(d), 100), 10)) where T<:BlasReal
 
     # Extract
     n = length(d)
@@ -132,19 +134,19 @@ function eigvals!{T<:BlasReal}(d::Vector{T}, e::Vector{T}, blocksize = max(div(l
     return d
 end
 
-function svdvals!{T<:BlasFloat}(A::DArray{T,2,Matrix{T}}, blocksize::Integer = max(10, round(Integer, minimum(size(A))/10)))
+function svdvals!(A::DArray{T,2,Matrix{T}}, blocksize::Integer = max(10, round(Integer, minimum(size(A))/10))) where T<:BlasFloat
 
     # problem size
     m, n = size(A)
-    mGrid, nGrid = size(A.chunks)
-    mbA = ceil(Int32, size(A, 1)/size(A.chunks, 1))
-    nbA = ceil(Int32, size(A, 2)/size(A.chunks, 2))
+    mGrid, nGrid = size(A.indices)
+    mbA = ceil(Int32, size(A, 1)/size(A.indices, 1))
+    nbA = ceil(Int32, size(A, 2)/size(A.indices, 2))
     mbB = blocksize
 
     # Check that array distribution is feasible for ScaLAPACK
     check_distribution(A)
 
-    vals = RemoteRef[]
+    vals = Future[]
 
     @sync for p in MPI.workers()
         # initialize grid
