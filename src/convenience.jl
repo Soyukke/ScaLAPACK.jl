@@ -4,7 +4,6 @@ function check_distribution(A::DArray{T, 2}) where T <: Number
     if !all(diff(diff(A.cuts[1]))[1:end-1] .== 0) || !all(diff(diff(A.cuts[2]))[1:end-1] .== 0)
         throw(ArgumentError("the distributions of the array does not fit to the requirements of ScaLAPACK. All blocks must have the same size except for the last in row and column"))
     end
-    # TODO ここ合っているかわからない procs(A) -> [procs(A)...]
     if !(all(diff(Int[remotecall_fetch(MPI.Comm_rank, p, MPI.COMM_WORLD) for p in [procs(A)...]]) .== 1))
         # MPIランクとmyid()の数字の大小関係の順番が同じである必要
         throw(ArgumentError("the ordering of the Julia processes and the MPI ranks must be the same. Consider constructing you DArray with an MPIManager argument instead of process numbers."))

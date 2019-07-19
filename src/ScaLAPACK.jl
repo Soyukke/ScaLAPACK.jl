@@ -1,5 +1,3 @@
-using MPI
-
 module ScaLAPACK
 
 export svdvals!
@@ -32,9 +30,8 @@ struct ScaLAPACKException <: Exception
     info::Int32
 end
 
-# const libscalapack = "/Users/andreasnoack/Downloads/scalapack-2.0.2/build/lib/libscalapack.dylib"
-# const libscalapack = "/usr/local/lib/libscalapack.dylib"
-const libscalapack = "/usr/lib/libscalapack-openmpi.so"
+moduledir = pathof(ScaLAPACK) |> dirname |> dirname
+const libscalapack = joinpath(moduledir, "deps", "libscalapack.so")
 
 include("blacs.jl")
 include("scalapackWrappers.jl")
