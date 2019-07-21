@@ -37,7 +37,7 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     # lld >= locrm || throw(ArgumentError("leading dimension of local array is too small"))
 
     # allocation
-    desc = zeros(ScaInt, 9)
+    desc = zeros(Cint, 9)
     info = ScaInt[1]
 
     # ccall
@@ -119,7 +119,7 @@ for (fname, elty) in ((:psstedc_, :Float32),
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$ScaInt}),
-                    [compz], [n], d, e,
+                    [Cuchar(compz)], [n], d, e,
                     Q, [iq], [jq], descq,
                     work, [lwork], iwork, [liwork],
                     info)
@@ -136,6 +136,55 @@ for (fname, elty) in ((:psstedc_, :Float32),
         end
     end
 end
+
+
+# Hermitian Eigensolves
+for (fname, elty) in ((:pcheev, :ComplexF32),
+                      (:pzheev, :ComplexF64))
+    @eval begin
+        function pxheevd!(JOBZ::Char, UPLO::Char, N::Cint, 
+            A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, 
+            W::Vector{typeof(real($elty(0)))}, Z::Matrix{$elty}, IZ::Cint, JZ::Cint, DESCZ::Vector{Cint}, 
+            WORK::Vector{$elty}, LWORK::Cint, RWORK::Vector{$elty}, LRWORK::Cint, INFO::Cint)
+            """
+            JOBZ    : 'N': eigenvalues only, 'V': eigenvalues and eigenvectors
+            UPLO    : 'U': upper triangular, 'L': lower triangular
+            N       : matrix row/col size
+            A       : cyclic matrix Complex
+            IA      : index i
+            JA      : index j
+            DESCA   : 
+            W       : out Float32/Float64, eigenvalues
+            Z       : out eigenvectors
+            IZ      : in
+            JZ      : in
+            DESCZ   : 
+            WORK    : out Complex array
+            LWORK   : in Integer
+            RWORK   : out Complex
+            LRWORK  : in Integer
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{ScaInt}, Ptr{$elty},
+                    Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{typeof(real($elty(0)))},
+                    Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
+                    Ptr{$elty}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}),
+                Ref(Cuchar(JOBZ)), Ref(Cuchar(UPLO)), Ref(N), A,
+                Ref(IA), Ref(JA), DESCA, W,
+                Z, Ref(IZ), Ref(JZ), DESCZ,
+                WORK, Ref(LWORK), RWORK, Ref(LRWORK), Ref(INFO))
+
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+            # print("WORK need $(WORK[1])")
+            # print("RWORK need $(RWORK[1])")
+
+            return W, Z
+        end # function
+    end # eval begin
+end
+
 
 # SVD solver
 for (fname, elty) in ((:psgesvd_, :Float32),

@@ -55,38 +55,27 @@ function A_mul_B!(α::T, A::MPIArray{T}, B::MPIArray{T}, β::T, C::MPIArray{T}) 
         dBnew = descinit(mB, nB, blocksize1, blocksize2, 0, 0, ic, npBnew)
         dCnew = descinit(mC, nC, blocksize1, blocksize2, 0, 0, ic, npCnew)
 
-        print("myrank: $id, myrow: $myrow, mycol: $mycol, npAnew: $npAnew, npCnew: $npCnew, npCnew: $npCnew\n")
+        # print("myrank: $id, myrow: $myrow, mycol: $mycol, npAnew: $npAnew, npCnew: $npCnew, npCnew: $npCnew\n")
 
         # redistribute cyclic
         Anew = Matrix{T}(undef, npAnew, nqAnew)
         pxgemr2d!(mA, nA, A.localarray, 1, 1, dA, Anew, 1, 1, dAnew, ic)
-
-        print("myrow: $myrow, mycol: $mycol, npAnew: $npAnew, npCnew: $npCnew, npCnew: $npCnew\n")
-        if id == 0
-            println("rank $id array Anew")
-            show(stdout, "text/plain", Anew)
-            println()
-        end
-
-
-
+        # print("myrow: $myrow, mycol: $mycol, npAnew: $npAnew, npCnew: $npCnew, npCnew: $npCnew\n")
+        # if id == 0
+        #     println("rank $id array Anew")
+        #     show(stdout, "text/plain", Anew)
+        #     println()
+        # end
         Bnew = Matrix{T}(undef, npBnew, nqBnew)
         pxgemr2d!(mB, nB, B.localarray, 1, 1, dB, Bnew, 1, 1, dBnew, ic)
         Cnew = Matrix{T}(undef, npCnew, nqCnew)
         pxgemr2d!(mC, nC, C.localarray, 1, 1, dC, Cnew, 1, 1, dCnew, ic)
-
-
-
-        # calculate
-        # pdgemm!('N', 'N', mC, nC, k, α, A.localarray, 1, 1, dA, B.localarray, 1, 1, dB, β, C.localarray, 1, 1, dC)
 
         # calculate
         pdgemm!('N', 'N', mC, nC, k, α, Anew, 1, 1, dAnew, Bnew, 1, 1, dBnew, β, Cnew, 1, 1, dCnew)
 
         # move result back to C
         pxgemr2d!(mC, nC, Cnew, 1, 1, dCnew, C.localarray, 1, 1, dC, ic)
-
-
         # cleanup
         BLACS.gridexit(ic)
     end
@@ -126,12 +115,77 @@ function svdvals!(A::MPIArray{T}) where T<:BlasFloat
 
 
         # calculate DSVD
-        # U, s, Vt = pxgesvd!('N', 'N', m, n, A.localarray, 1, 1, dA, zeros(typeof(real(one(T))), min(m, n)), zeros(T, 0, 0), 0, 0, dA, zeros(T, 0, 0), 0, 0, dA)
         U, s, Vt = pxgesvd!('N', 'N', m, n, B, 1, 1, dB, zeros(typeof(real(one(T))), min(m, n)), zeros(T, 0, 0), 0, 0, dB, zeros(T, 0, 0), 0, 0, dB)
-        # U, s, Vt = pxgesvd!('N', 'N', m, n, B, 1, 1, dB, Matrix{typeof(real(one(T)))}(undef, min(m, n)), Matrix{T}(undef, 0, 0), 0, 0, dB, Matrix{T}(undef, 0, 0), 0, 0, dB)
         # clean up
         BLACS.gridexit(ic)
         return s
     end
     return nothing
 end
+
+
+function eigen_hermitian(A::MPIArray{Complex{T}}) where T<:AbstractFloat
+    n, N::Cint = size(A)
+    @assert n == N "nrow != ncol of matrix"
+    NP, NQ = size(A.partitioning)
+    mbA, nbA = size(A.localarray) # submatrix size
+    mbB = 1 # blocksize
+
+    eigenvalues = Vector{T}(undef, n)
+    eigenvectors = MPIArray{Complex{T}}(MPI.COMM_WORLD, (NP, NQ), N, N)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    # hermitian
+    npA = numroc(N, mbA, myrow, 0, nprow)
+    nqA = numroc(N, nbA, mycol, 0, npcol)
+    npB = numroc(N, mbB, myrow, 0, nprow)
+    nqB = numroc(N, mbB, mycol, 0, npcol)
+    # eigenvectors
+    npZ = numroc(N, mbA, myrow, 0, nprow)
+    nqZ = numroc(N, mbA, mycol, 0, npcol)
+    npZ_cyclic = numroc(N, mbB, myrow, 0, nprow)
+    nqZ_cyclic = numroc(N, mbB, mycol, 0, npcol)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, mbA, nbA, 0, 0, ic, npA)
+        dB = descinit(N, N, mbB, mbB, 0, 0, ic, npB)
+        dZ = descinit(N, N, mbA, mbA, 0, 0, ic, npZ)
+        dZ_cyclic = descinit(N, N, mbB, mbB, 0, 0, ic, npZ_cyclic)
+        # redistribute cyclic matrix
+        B = Matrix{Complex{T}}(undef, npB, nqB)
+        Z_cyclic = Matrix{Complex{T}}(undef, npZ_cyclic, nqZ_cyclic)
+        pxgemr2d!(N, N, A.localarray, 1, 1, dA, B, 1, 1, dB, ic)
+        pxgemr2d!(N, N, eigenvectors.localarray, 1, 1, dZ, Z_cyclic, 1, 1, dZ_cyclic, ic)
+
+        WORK = Vector{Complex{T}}(undef, 1)
+        LWORK::Cint = -1
+        RWORK = Vector{Complex{T}}(undef, 1)
+        LRWORK::Cint = -1
+        INFO::Cint = 0
+        # GET LWORK, LRWORK
+        pxheevd!('V', 'U', N, B, Cint(1), Cint(1), dB, eigenvalues, Z_cyclic, Cint(1), Cint(1), dZ_cyclic, WORK, LWORK, RWORK, LRWORK, INFO)
+        # if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        #     println("WORK SIZE: $(real(WORK[1])), RWORK SIZE: $(real(RWORK[1]))")
+        # end
+        # allocate work space memory
+        LWORK = real(WORK[1])
+        LRWORK = real(RWORK[1])
+        WORK = Vector{Complex{T}}(undef, LWORK)
+        RWORK = Vector{Complex{T}}(undef, LRWORK)
+        # calculate eigenvalues / eigenvectors of hermitian matrix A
+        pxheevd!('V', 'U', N, B, Cint(1), Cint(1), dB, eigenvalues, Z_cyclic, Cint(1), Cint(1), dZ_cyclic, WORK, LWORK, RWORK, LRWORK, INFO)
+
+        # move result back to C
+        pxgemr2d!(N, N, Z_cyclic, 1, 1, dZ_cyclic, eigenvectors.localarray, 1, 1, dZ, ic)
+
+        # clean up
+        BLACS.gridexit(ic)
+        return eigenvalues, eigenvectors
+    end
+    return nothing
+end
+
