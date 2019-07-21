@@ -1,10 +1,11 @@
 module ScaLAPACK
 
-export svdvals!
+export svdvals!, A_mul_B!
 
 using Compat
 using LinearAlgebra: BlasFloat, BlasReal
 using MPI, Distributed, DistributedArrays
+using MPIArrays
 
 import DistributedArrays: DArray, defaultdist
 # this should only be a temporary solution until procs returns a type that encodes more information about the processes
@@ -21,11 +22,6 @@ function defaultdist(sz::Int, nc::Int)
     end
 end
 
-
-if myid() > 1
-    MPI.Initialized() || MPI.Init()
-end
-
 struct ScaLAPACKException <: Exception
     info::Int32
 end
@@ -36,5 +32,6 @@ const libscalapack = joinpath(moduledir, "deps", "libscalapack.so")
 include("blacs.jl")
 include("scalapackWrappers.jl")
 include("convenience.jl")
+include("convinience_mpi.jl")
 
 end # module

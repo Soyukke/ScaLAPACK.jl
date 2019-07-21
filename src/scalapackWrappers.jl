@@ -6,10 +6,10 @@ ScaInt = Int32 # Fixme! Have to find a way of detecting if this is always the ca
 
 # Initialize
 function sl_init(nprow::Integer, npcol::Integer)
-    ictxt = Array(ScaInt, 1)
+    ictxt = zeros(ScaInt, 1)
     ccall((:sl_init_, libscalapack), Cvoid,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-        ictxt, Ref{nprow}, Ref{npcol})
+        ictxt, [nprow], [npcol])
     return ictxt[1]
 end
 
@@ -17,7 +17,7 @@ end
 function numroc(n::Integer, nb::Integer, iproc::Integer, isrcproc::Integer, nprocs::Integer)
     ccall((:numroc_, libscalapack), ScaInt,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-        Ref{n}, Ref{nb}, Ref{iproc}, Ref{isrcproc}, Ref{nprocs})
+        [n], [nb], [iproc], [isrcproc], [nprocs])
 end
 
 # Array descriptor
@@ -37,17 +37,17 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     # lld >= locrm || throw(ArgumentError("leading dimension of local array is too small"))
 
     # allocation
-    desc = Array(ScaInt, 9)
-    info = Array(ScaInt, 1)
+    desc = zeros(ScaInt, 9)
+    info = ScaInt[1]
 
     # ccall
     ccall((:descinit_, libscalapack), Cvoid,
         (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
          Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
          Ptr{ScaInt}, Ptr{ScaInt}),
-        desc, Ref{m}, Ref{n}, Ref{mb},
-        Ref{nb}, Ref{irsrc}, Ref{icsrc}, Ref{ictxt},
-        Ref{lld}, info)
+        desc, [m], [n], [mb],
+        [nb], [irsrc], [icsrc], [ictxt],
+        [lld], info)
 
     info[1] == 0 || error("input argument $(info[1]) has illegal value")
 
@@ -66,9 +66,9 @@ for (fname, elty) in ((:psgemr2d_, :Float32),
                 (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-                Ref{m}, Ref{n}, A, Ref{ia},
-                Ref{ja}, desca, B, Ref{ib},
-                Ref{jb}, descb, Ref{ictxt})
+                [m], [n], A, [ia],
+                [ja], desca, B, [ib],
+                [jb], descb, [ictxt])
         end
     end
 end
@@ -91,11 +91,11 @@ for (fname, elty) in ((:psgemm_, :Float32),
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty},
                  Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
-                Ref{transa}, Ref{transb}, Ref{m}, Ref{n},
-                Ref{k}, Ref{α}, A, Ref{ia},
-                Ref{ja}, desca, B, Ref{ib},
-                Ref{jb}, descb, Ref{β}, C,
-                Ref{ic}, Ref{jc}, descc)
+                [Cuchar(transa)], [Cuchar(transb)], [m], [n],
+                [k], [α], A, [ia],
+                [ja], desca, B, [ib],
+                [jb], descb, [β], C,
+                [ic], [jc], descc)
         end
     end
 end
@@ -119,16 +119,16 @@ for (fname, elty) in ((:psstedc_, :Float32),
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$ScaInt}),
-                    Ref{compz}, Ref{n}, d, e,
-                    Q, Ref{iq}, Ref{jq}, descq,
-                    work, Ref{lwork}, iwork, Ref{liwork},
+                    [compz], [n], d, e,
+                    Q, [iq], [jq], descq,
+                    work, [lwork], iwork, [liwork],
                     info)
 
                 if i == 1
                     lwork = convert(ScaInt, work[1])
-                    work = Array($elty, lwork)
+                    work = zeros($elty, lwork)
                     liwork = convert(ScaInt, iwork[1])
-                    iwork = Array(ScaInt, liwork)
+                    iwork = zeros(ScaInt, liwork)
                 end
             end
 
@@ -147,8 +147,8 @@ for (fname, elty) in ((:psgesvd_, :Float32),
             # check
 
             # allocate
-            info = Array(ScaInt, 1)
-            work = Array($elty, 1)
+            info = zeros(ScaInt, 1)
+            work = zeros($elty, 1)
             lwork = -1
 
             # ccall
@@ -159,14 +159,14 @@ for (fname, elty) in ((:psgesvd_, :Float32),
                      Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}),
-                    Ref{jobu}, Ref{jobvt}, Ref{m}, Ref{n},
-                    A, Ref{ia}, Ref{ja}, desca,
-                    s, U, Ref{iu}, Ref{ju},
-                    descu, Vt, Ref{ivt}, Ref{jvt},
-                    descvt, work, Ref{lwork}, info)
+                    [Cuchar(jobu)], [Cuchar(jobvt)], [m], [n],
+                    A, [ia], [ja], desca,
+                    s, U, [iu], [ju],
+                    descu, Vt, [ivt], [jvt],
+                    descvt, work, [lwork], info)
                 if i == 1
                     lwork = convert(ScaInt, work[1])
-                    work = Array($elty, lwork)
+                    work = zeros($elty, lwork)
                 end
             end
 
@@ -187,9 +187,9 @@ for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
             # check
 
             # allocate
-            info = Array(ScaInt, 1)
-            work = Array($elty, 1)
-            rwork = Array($relty, 1 + 4*max(m, n))
+            info = zeros(ScaInt, 1)
+            work = zeros($elty, 1)
+            rwork = zeros($relty, 1 + 4*max(m, n))
             lwork = -1
 
             # ccall
@@ -201,15 +201,15 @@ for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{$relty},
                      Ptr{ScaInt}),
-                    Ref{jobu}, Ref{jobvt}, Ref{m}, Ref{n},
-                    A, Ref{ia}, Ref{ja}, desca,
-                    s, U, Ref{iu}, Ref{ju},
-                    descu, Vt, Ref{ivt}, Ref{jvt},
-                    descvt, work, Ref{lwork}, rwork,
+                    [Cuchar(jobu)], [Cuchar(jobvt)], [m], [n],
+                    A, [ia], [ja], desca,
+                    s, U, [iu], [ju],
+                    descu, Vt, [ivt], [jvt],
+                    descvt, work, [lwork], rwork,
                     info)
                 if i == 1
                     lwork = convert(ScaInt, work[1])
-                    work = Array($elty, lwork)
+                    work = zeros($elty, lwork)
                 end
             end
 
