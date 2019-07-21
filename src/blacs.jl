@@ -12,7 +12,7 @@ function gridinit(icontxt::Integer, order::Char, nprow::Integer, npcol::Integer)
     icontxta = Int32[icontxt]
     ccall((:blacs_gridinit_, libscalapack), Cvoid,
         (Ptr{Int32}, Ptr{UInt8}, Ptr{Int32}, Ptr{Int32}),
-        icontxta, [order], [nprow], [npcol])
+        icontxta, [Cuchar(order)], [nprow], [npcol])
     icontxta[1]
 end
 

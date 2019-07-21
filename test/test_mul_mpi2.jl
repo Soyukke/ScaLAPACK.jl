@@ -20,9 +20,10 @@ B = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
 C = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
 
 
-forlocalpart!(x->fill!(x, rank), A)
-forlocalpart!(x->fill!(x, rank), B)
-sync(A, B)
+forlocalpart!(x->rand!(x), A)
+forlocalpart!(x->rand!(x), B)
+forlocalpart!(x->rand!(x), C)
+sync(A, B, C)
 
 A_test = convert(Array, A)
 B_test = convert(Array, B)
@@ -40,9 +41,14 @@ if rank == 0
 
     println("A_mul_B! is worked")
     show(stdout, "text/plain", C)
-    println()
+    println() 
+
+    println("A_test * B_test")
+    show(stdout, "text/plain", alpha * A_test * B_test)
+    println() 
+
+    @test convert(Array, C) == alpha * A_test * B_test
 end
 
-@test convert(Array, C) == alpha * A_test * B_test
 
 MPI.Finalize()
