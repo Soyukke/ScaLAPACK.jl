@@ -177,8 +177,6 @@ for (fname, elty) in ((:pcheev, :ComplexF32),
 
             func_name = $(string(fname))
             INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
-            # print("WORK need $(WORK[1])")
-            # print("RWORK need $(RWORK[1])")
 
             return W, Z
         end # function

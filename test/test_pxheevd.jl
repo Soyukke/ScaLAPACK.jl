@@ -13,8 +13,8 @@ rank == 0 && print("test pxheevd\n")
 
 # make Hermitian
 H = MPIArray{ComplexF64}(N, N)
-for i in 1:N
-    for j in 1:i
+if rank == 0
+    for i in 1:N, j in 1:i
         if i == j
             H[i, i] = rand()
         else
@@ -23,6 +23,7 @@ for i in 1:N
         end
     end
 end
+
 sync(H)
 H_test = convert(Array, H)
 
