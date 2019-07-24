@@ -1,6 +1,5 @@
 module ScaLAPACK
 
-export svdvals!, A_mul_B!, eigen_hermitian
 
 using Compat
 using LinearAlgebra: BlasFloat, BlasReal

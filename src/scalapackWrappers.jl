@@ -338,3 +338,240 @@ for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
     end
 end
 
+
+# general matrix -> upper Hessenberg
+for (fname, elty) in ((:psgehrd_, :Float32), (:pdgehrd_, :Float64), (:pcgehrd_, :ComplexF32), (:pzgehrd_, :ComplexF64))
+    @eval begin
+        function $fname(N::Cint, ILO::Cint, IHI::Cint, 
+            A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, TAU::Vector{$elty},
+            WORK::Vector{$elty}, LWORK::Cint, INFO::Vector{Cint})
+            """
+            N       : matrix row/col size
+            ILO     : upper triangular
+            IHI     : upper triangular
+            A       : cyclic matrix local matrix
+            IA      : local index i
+            JA      : local index j
+            DESCA   : descriptor of A
+            TAU     : (local output) size NUMROC(JA+N-2, NB_A, MYCOL, CSRC_A, NPCOL), 
+            WORK    : out Complex array
+            LWORK   : in Integer
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
+                Ref(N), Ref(ILO), Ref(IHI),
+                A, Ref(IA), Ref(JA), DESCA, TAU,
+                WORK, Ref(LWORK), INFO)
+        end # function
+
+        # wrap
+        function pXgehrd!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, TAU::Vector{$elty})
+            WORK = Vector{$elty}(undef, 1)
+            LWORK::Cint = -1
+            INFO = Cint[0]
+            ILO::Cint = 1
+            IHI::Cint = N
+    
+            $fname(N, ILO, IHI, A, Cint(1), Cint(1), DESCA, TAU, WORK, LWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+
+            # allocate work space memory
+            LWORK = real(WORK[1])
+            WORK = Vector{$elty}(undef, LWORK)
+
+            $fname(N, ILO, IHI, A, Cint(1), Cint(1), DESCA, TAU, WORK, LWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+
+
+for (fname, elty) in ((:pslahqr_, :Float32), (:pdlahqr_, :Float64))
+    @eval begin
+        function $fname(WANTT::Bool , WANTZ::Bool, N::Cint,
+            ILO::Cint, IHI::Cint, A::Matrix{$elty}, DESCA::Vector{Cint},
+            WR::Vector{$elty}, WI::Vector{$elty}, ILOZ::Cint, IHIZ::Cint, Z::Matrix{$elty}, DESCZ::Vector{Cint},
+            WORK::Vector{$elty}, LWORK::Cint, IWORK::Vector{Cint}, ILWORK::Cint, INFO::Vector{Cint})
+            """
+            WANTT   : .TRUE. full Schur form T is required, .FALSE. only eigenvalues are required
+            WANTZ   : .TRUE. required Schur vectors Z, .FALSE. not required
+            N       : matrix row/col size
+            ILO     : upper triangular
+            IHI     : upper triangular
+            A       : (global) upper hessenberg matrix
+            DESCA   : descriptor of A
+            WR       : eigenvalues real part
+            WI       : eigenvalues imag part
+            ILOZ    :
+            IHIZ    :
+            Z       : if WANTZ true
+            DESCZ
+            WORK    : out Complex array
+            LWORK   : in Integer
+            IWORK   : not use
+            ILWORK  : not use
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
+                Ref(Cint(WANTT)), Ref(Cint(WANTZ)), Ref(N),
+                Ref(ILO), Ref(IHI), A, DESCA,
+                WR, WI, Ref(ILOZ), Ref(IHIZ), Z, DESCZ,
+                WORK, Ref(LWORK), IWORK, Ref(ILWORK), INFO)
+        end # function
+
+        # wrap
+        function pXlahqr!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, WR::Vector{$elty}, WI::Vector{$elty}, Z::Matrix{$elty}, DESCZ::Vector{Cint})
+            dp_alloc = 200000000
+            WORK = Vector{$elty}(undef, dp_alloc)
+            LWORK::Cint = dp_alloc
+            IWORK = Vector{Cint}(undef, 1)
+            ILWORK::Cint = -1
+
+            INFO = Cint[0]
+            ILO::Cint = 1
+            IHI::Cint = N
+            ILOZ::Cint = 1
+            IHIZ::Cint = N
+    
+            $fname(true, true, N, ILO, IHI, A, DESCA, WR, WI, ILOZ, IHIZ, Z, DESCZ, WORK, LWORK, IWORK, ILWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+
+for (fname, elty) in ((:pclahqr_, :ComplexF32), (:pzlahqr_, :ComplexF64))
+    @eval begin
+        function $fname(WANTT::Bool , WANTZ::Bool, N::Cint,
+            ILO::Cint, IHI::Cint, A::Matrix{$elty}, DESCA::Vector{Cint},
+            W::Vector{$elty}, ILOZ::Cint, IHIZ::Cint, Z::Matrix{$elty}, DESCZ::Vector{Cint},
+            WORK::Vector{$elty}, LWORK::Cint, IWORK::Vector{Cint}, ILWORK::Cint, INFO::Vector{Cint})
+            """
+            WANTT   : .TRUE. full Schur form T is required, .FALSE. only eigenvalues are required
+            WANTZ   : .TRUE. required Schur vectors Z, .FALSE. not required
+            N       : matrix row/col size
+            ILO     : upper triangular
+            IHI     : upper triangular
+            A       : (global) upper hessenberg matrix
+            DESCA   : descriptor of A
+            W       : eigenvalues
+            ILOZ    :
+            IHIZ    :
+            Z       : if WANTZ true
+            DESCZ
+            WORK    : out Complex array
+            LWORK   : in Integer
+            IWORK   : not use
+            ILWORK  : not use
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
+                Ref(Cint(WANTT)), Ref(Cint(WANTZ)), Ref(N),
+                Ref(ILO), Ref(IHI), A, DESCA,
+                W, Ref(ILOZ), Ref(IHIZ), Z, DESCZ,
+                WORK, Ref(LWORK), IWORK, Ref(ILWORK), INFO)
+        end # function
+
+        # wrap
+        function pXlahqr!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, W::Vector{$elty}, Z::Matrix{$elty}, DESCZ::Vector{Cint})
+            WORK = Vector{$elty}(undef, 1)
+            LWORK::Cint = -1
+            IWORK = Vector{Cint}(undef, 1)
+            ILWORK::Cint = -1
+
+            INFO = Cint[0]
+            ILO::Cint = 1
+            IHI::Cint = N
+            ILOZ::Cint = 1
+            IHIZ::Cint = N
+    
+            $fname(true, true, N, ILO, IHI, A, DESCA, W, ILOZ, IHIZ, Z, DESCZ, WORK, LWORK, IWORK, ILWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+
+            # allocate work space memory
+            LWORK = real(WORK[1])
+            WORK = Vector{$elty}(undef, LWORK)
+            $fname(true, true, N, ILO, IHI, A, DESCA, W, ILOZ, IHIZ, Z, DESCZ, WORK, LWORK, IWORK, ILWORK, INFO)
+
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+
+for (fname, elty) in ((:pslaqr1_, :Float32), (:pdlaqr2_, :Float64))
+    @eval begin
+        function $fname(WANTT::Bool , WANTZ::Bool, N::Cint,
+            ILO::Cint, IHI::Cint, A::Matrix{$elty}, DESCA::Vector{Cint},
+            WR::Vector{$elty}, WI::Vector{$elty}, ILOZ::Cint, IHIZ::Cint, Z::Matrix{$elty}, DESCZ::Vector{Cint},
+            WORK::Vector{$elty}, LWORK::Cint, IWORK::Vector{Cint}, ILWORK::Cint, INFO::Vector{Cint})
+            """
+            WANTT   : .TRUE. full Schur form T is required, .FALSE. only eigenvalues are required
+            WANTZ   : .TRUE. required Schur vectors Z, .FALSE. not required
+            N       : matrix row/col size
+            ILO     : upper triangular
+            IHI     : upper triangular
+            A       : (global) upper hessenberg matrix
+            DESCA   : descriptor of A
+            WR       : eigenvalues real part
+            WI       : eigenvalues imag part
+            ILOZ    :
+            IHIZ    :
+            Z       : if WANTZ true
+            DESCZ
+            WORK    : out Complex array
+            LWORK   : in Integer
+            IWORK   : not use
+            ILWORK  : not use
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
+                Ref(Cint(WANTT)), Ref(Cint(WANTZ)), Ref(N),
+                Ref(ILO), Ref(IHI), A, DESCA,
+                WR, WI, Ref(ILOZ), Ref(IHIZ), Z, DESCZ,
+                WORK, Ref(LWORK), IWORK, Ref(ILWORK), INFO)
+        end # function
+
+        # wrap
+        function pXlaqr1!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, WR::Vector{$elty}, WI::Vector{$elty}, Z::Matrix{$elty}, DESCZ::Vector{Cint})
+            dp_alloc = 200000000
+            WORK = Vector{$elty}(undef, dp_alloc)
+            LWORK::Cint = dp_alloc
+            IWORK = Vector{Cint}(undef, 1)
+            ILWORK::Cint = -1
+
+            INFO = Cint[0]
+            ILO::Cint = 1
+            IHI::Cint = N
+            ILOZ::Cint = 1
+            IHIZ::Cint = N
+    
+            $fname(true, true, N, ILO, IHI, A, DESCA, WR, WI, ILOZ, IHIZ, Z, DESCZ, WORK, LWORK, IWORK, ILWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+

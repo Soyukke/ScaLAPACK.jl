@@ -1,6 +1,10 @@
 import LinearAlgebra.svdvals!
+import LinearAlgebra.hessenberg!
+export svdvals!, A_mul_B!, eigen_hermitian
+export hessenberg!, eigen_schur!
 
-function A_mul_B!(α::T, A::MPIArray{T}, B::MPIArray{T}, β::T, C::MPIArray{T}) where T <: Union{BlasFloat, Complex}
+# BlasFloat is Union{Complex{Float32}, Complex{Float64}, Float32, Float64}
+function A_mul_B!(α::T, A::MPIArray{T}, B::MPIArray{T}, β::T, C::MPIArray{T}) where T <: BlasFloat
     # global matrix size
     m_A, n_A = size(A)
     m_B, n_B = size(B)
@@ -66,54 +70,7 @@ function svdvals!(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-
-function eigen_symmetric(A::MPIArray{T}) where T<:BlasFloat
-    n, N = Cint.(size(A))
-    @assert n == N "m != n of matrix"
-    NP, NQ = Cint.(size(pids(A)))
-    NB, _ = Cint.(blocksizes(A))
-
-    eigenvalues = Vector{T}(undef, N)
-    eigenvectors = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
-
-    id, nprocs = BLACS.pinfo()
-    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
-
-    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-
-    npA = numroc(N, NB, myrow, 0, nprow)
-    nqA = numroc(N, NB, mycol, 0, npcol)
-    # eigenvectors
-    npZ = numroc(N, NB, myrow, 0, nprow)
-    nqZ = numroc(N, NB, mycol, 0, npcol)
-
-    if nprow >= 0 && npcol >= 0
-        # Get Array info
-        dA = descinit(N, N, NB, NB, 0, 0, ic, npA)
-        dZ = descinit(N, N, NB, NB, 0, 0, ic, npZ)
-
-        WORK = Vector{Complex{T}}(undef, 1)
-        LWORK::Cint = -1
-        RWORK = Vector{Complex{T}}(undef, 1)
-        LRWORK::Cint = -1
-        INFO::Cint = 0
-        # GET LWORK, LRWORK
-        pxheev!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
-        # allocate work space memory
-        LWORK = real(WORK[1])
-        LRWORK = real(RWORK[1])
-        WORK = Vector{Complex{T}}(undef, LWORK)
-        RWORK = Vector{Complex{T}}(undef, LRWORK)
-        # calculate eigenvalues / eigenvectors of hermitian matrix A
-        pxheev!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
-        # clean up
-        BLACS.gridexit(ic)
-        return eigenvalues, eigenvectors
-    end
-    return nothing
-end
-
-function eigen_hermitian(A::MPIArray{T}) where T<:Union{BlasFloat, Complex}
+function eigen_hermitian(A::MPIArray{T}) where T<:BlasFloat
     n, N = Cint.(size(A))
     @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
@@ -144,4 +101,119 @@ function eigen_hermitian(A::MPIArray{T}) where T<:Union{BlasFloat, Complex}
     return nothing
 end
 
+function hessenberg!(A::MPIArray{T}) where T<:BlasFloat
+    n, N = Cint.(size(A))
+    @assert n == N "m != n of matrix"
+    NP, NQ = Cint.(size(pids(A)))
+    NB, _ = Cint.(blocksizes(A))
 
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    IA, JA = 1, 1
+    LOCc_TAU = numroc(IA+N-2, NB, mycol, 0, npcol)
+    TAU = Vector{T}(undef, LOCc_TAU)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
+        pXgehrd!(N, A.localarray, dA, TAU)
+        # clean up
+        BLACS.gridexit(ic)
+    end
+    return nothing
+end
+
+function eigen_schur!(A::MPIArray{T}) where T<:AbstractFloat
+    n, N = Cint.(size(A))
+    NP, NQ = Cint.(size(pids(A)))
+    NB, NB2 = Cint.(blocksizes(A))
+
+    @assert n == N "m != n of matrix"
+    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
+
+    WR = Vector{T}(undef, N)
+    WI = Vector{T}(undef, N)
+    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    LOCr_Z = numroc(N, NB, myrow, 0, nprow)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
+        dZ = descinit(N, N, NB, NB, 0, 0, ic, LOCr_Z)
+        pXlahqr!(N, A.localarray, dA, WR, WI, Z.localarray, dZ)
+        # clean up
+        BLACS.gridexit(ic)
+    end
+    return WR + im*WI, Z
+end
+
+function eigen_schur!(A::MPIArray{T}) where T<:Complex
+    n, N = Cint.(size(A))
+    NP, NQ = Cint.(size(pids(A)))
+    NB, NB2 = Cint.(blocksizes(A))
+
+    @assert n == N "m != n of matrix"
+    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
+
+    W = Vector{T}(undef, N)
+    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    LOCr_Z = numroc(N, NB, myrow, 0, nprow)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
+        dZ = descinit(N, N, NB, NB, 0, 0, ic, LOCr_Z)
+        pXlahqr!(N, A.localarray, dA, W, Z.localarray, dZ)
+        # clean up
+        BLACS.gridexit(ic)
+    end
+    return W, Z
+end
+
+function eigen_schur!(A::MPIArray{T}, v::Integer) where T<:AbstractFloat
+    n, N = Cint.(size(A))
+    NP, NQ = Cint.(size(pids(A)))
+    NB, NB2 = Cint.(blocksizes(A))
+
+    @assert n == N "m != n of matrix"
+    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
+
+    WR = Vector{T}(undef, N)
+    WI = Vector{T}(undef, N)
+    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    LOCr_Z = numroc(N, NB, myrow, 0, nprow)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
+        dZ = descinit(N, N, NB, NB, 0, 0, ic, LOCr_Z)
+
+        if v==1
+            pXlaqr1!(N, A.localarray, dA, WR, WI, Z.localarray, dZ)
+        end
+        # clean up
+        BLACS.gridexit(ic)
+    end
+    return WR + im*WI, Z
+end
