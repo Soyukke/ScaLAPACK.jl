@@ -13,7 +13,7 @@ comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
 n_proc = MPI.Comm_size(comm)
 
-for eltype in [ComplexF32, ComplexF64]
+for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     if rank == 0
         println("eigen_hermitian tests")
         println("eltype: $eltype")
@@ -28,10 +28,14 @@ for eltype in [ComplexF32, ComplexF64]
             for (j, gj) in enumerate(range_j)
                 if gi==gj
                     localarray[i, j] = gi
-                elseif gi < gj
-                    localarray[i, j] = gi + im*gj
-                else
-                    localarray[i, j] = gj - im*gi
+                elseif eltype <: Complex
+                    if gi < gj
+                        localarray[i, j] = gi + im*gj
+                    else
+                        localarray[i, j] = gj - im*gi
+                    end
+                elseif eltype <: AbstractFloat
+                    localarray[i, j] = gi + gj
                 end
             end
         end

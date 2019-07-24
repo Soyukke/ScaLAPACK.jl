@@ -113,14 +113,14 @@ function eigen_symmetric(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function eigen_hermitian(A::MPIArray{Complex{T}}) where T<:AbstractFloat
+function eigen_hermitian(A::MPIArray{T}) where T<:Union{BlasFloat, Complex}
     n, N = Cint.(size(A))
     @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
     NB, _ = Cint.(blocksizes(A))
 
-    eigenvalues = Vector{T}(undef, N)
-    eigenvectors = CyclicMPIArray(Complex{T}, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    eigenvalues = Vector{typeof(real(T(0)))}(undef, N)
+    eigenvectors = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
