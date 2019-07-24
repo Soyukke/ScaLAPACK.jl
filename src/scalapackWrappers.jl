@@ -1,22 +1,16 @@
-ScaInt = Int32 # Fixme! Have to find a way of detecting if this is always the case
-
-#############
-# Auxiliary #
-#############
-
 # Initialize
 function sl_init(nprow::Integer, npcol::Integer)
-    ictxt = zeros(ScaInt, 1)
+    ictxt = zeros(Cint, 1)
     ccall((:sl_init_, libscalapack), Cvoid,
-        (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
+        (Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
         ictxt, [nprow], [npcol])
     return ictxt[1]
 end
 
 # Calculate size of local array
 function numroc(n::Integer, nb::Integer, iproc::Integer, isrcproc::Integer, nprocs::Integer)
-    ccall((:numroc_, libscalapack), ScaInt,
-        (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
+    ccall((:numroc_, libscalapack), Cint,
+        (Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
         [n], [nb], [iproc], [isrcproc], [nprocs])
 end
 
@@ -38,13 +32,13 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
 
     # allocation
     desc = zeros(Cint, 9)
-    info = ScaInt[1]
+    info = Cint[1]
 
     # ccall
     ccall((:descinit_, libscalapack), Cvoid,
-        (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-         Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-         Ptr{ScaInt}, Ptr{ScaInt}),
+        (Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+         Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+         Ptr{Cint}, Ptr{Cint}),
         desc, [m], [n], [mb],
         [nb], [irsrc], [icsrc], [ictxt],
         [lld], info)
@@ -60,12 +54,12 @@ for (fname, elty) in ((:psgemr2d_, :Float32),
                       (:pcgemr2d_, :ComplexF32),
                       (:pzgemr2d_, :ComplexF64))
     @eval begin
-        function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{ScaInt}, ictxt::Integer)
+        function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Cint}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Cint}, ictxt::Integer)
 
             ccall(($(string(fname)), libscalapack), Cvoid,
-                (Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
-                 Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
-                 Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
+                (Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                 Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                 Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
                 [m], [n], A, [ia],
                 [ja], desca, B, [ib],
                 [jb], descb, [ictxt])
@@ -83,14 +77,14 @@ for (fname, elty) in ((:psgemm_, :Float32),
                       (:pcgemm_, :ComplexF32),
                       (:pzgemm_, :ComplexF64))
     @eval begin
-        function pdgemm!(transa::Char, transb::Char, m::Integer, n::Integer, k::Integer, α::$elty, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{ScaInt}, β::$elty, C::Matrix{$elty}, ic::Integer, jc::Integer, descc::Vector{ScaInt})
+        function pdgemm!(transa::Char, transb::Char, m::Integer, n::Integer, k::Integer, α::$elty, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Cint}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Cint}, β::$elty, C::Matrix{$elty}, ic::Integer, jc::Integer, descc::Vector{Cint})
 
             ccall(($(string(fname)), libscalapack), Cvoid,
-                (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
-                 Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt},
-                 Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt},
-                 Ptr{ScaInt}, Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty},
-                 Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}),
+                (Ptr{UInt8}, Ptr{UInt8}, Ptr{Cint}, Ptr{Cint},
+                 Ptr{Cint}, Ptr{$elty}, Ptr{$elty}, Ptr{Cint},
+                 Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
+                 Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{$elty},
+                 Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
                 [Cuchar(transa)], [Cuchar(transb)], [m], [n],
                 [k], [α], A, [ia],
                 [ja], desca, B, [ib],
@@ -104,31 +98,31 @@ end
 for (fname, elty) in ((:psstedc_, :Float32),
                       (:pdstedc_, :Float64))
     @eval begin
-        function pxstedc!(compz::Char, n::Integer, d::Vector{$elty}, e::Vector{$elty}, Q::Matrix{$elty}, iq::Integer, jq::Integer, descq::Vector{ScaInt})
+        function pxstedc!(compz::Char, n::Integer, d::Vector{$elty}, e::Vector{$elty}, Q::Matrix{$elty}, iq::Integer, jq::Integer, descq::Vector{Cint})
 
 
             work    = $elty[0]
-            lwork   = convert(ScaInt, -1)
-            iwork   = ScaInt[0]
-            liwork  = convert(ScaInt, -1)
-            info    = ScaInt[0]
+            lwork   = convert(Cint, -1)
+            iwork   = Cint[0]
+            liwork  = convert(Cint, -1)
+            info    = Cint[0]
 
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Cvoid,
                     (Ptr{UInt8}, Ptr{UInt8}, Ptr{$elty}, Ptr{$elty},
-                     Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$ScaInt}),
+                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$Cint}),
                     [Cuchar(compz)], [n], d, e,
                     Q, [iq], [jq], descq,
                     work, [lwork], iwork, [liwork],
                     info)
 
                 if i == 1
-                    lwork = convert(ScaInt, work[1])
+                    lwork = convert(Cint, work[1])
                     work = zeros($elty, lwork)
-                    liwork = convert(ScaInt, iwork[1])
-                    iwork = zeros(ScaInt, liwork)
+                    liwork = convert(Cint, iwork[1])
+                    iwork = zeros(Cint, liwork)
                 end
             end
 
@@ -139,8 +133,8 @@ end
 
 
 # Hermitian Eigensolves
-for (fname, elty) in ((:pcheev, :ComplexF32),
-                      (:pzheev, :ComplexF64))
+for (fname, elty) in ((:pcheev_, :ComplexF32),
+                      (:pzheev_, :ComplexF64))
     @eval begin
         function pxheevd!(JOBZ::Char, UPLO::Char, N::Cint, 
             A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, 
@@ -166,10 +160,10 @@ for (fname, elty) in ((:pcheev, :ComplexF32),
             INFO    : out Integer = 0 success
             """
             ccall(($(string(fname)), libscalapack), Cvoid,
-                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{ScaInt}, Ptr{$elty},
-                    Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{typeof(real($elty(0)))},
-                    Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-                    Ptr{$elty}, Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}),
+                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{Cint}, Ptr{$elty},
+                    Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{typeof(real($elty(0)))},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
                 Ref(Cuchar(JOBZ)), Ref(Cuchar(UPLO)), Ref(N), A,
                 Ref(IA), Ref(JA), DESCA, W,
                 Z, Ref(IZ), Ref(JZ), DESCZ,
@@ -188,31 +182,27 @@ end
 for (fname, elty) in ((:psgesvd_, :Float32),
                       (:pdgesvd_, :Float64))
     @eval begin
-        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, s::StridedVector{$elty}, U::StridedMatrix{$elty}, iu::Integer, ju::Integer, descu::Vector{ScaInt}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{ScaInt})
-            # extract values
-
-            # check
-
+        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Cint}, s::StridedVector{$elty}, U::StridedMatrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Cint}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Cint})
             # allocate
-            info = zeros(ScaInt, 1)
+            info = zeros(Cint, 1)
             work = zeros($elty, 1)
-            lwork = -1
+            lwork::Cint = -1
 
             # ccall
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Cvoid,
-                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}),
-                    [Cuchar(jobu)], [Cuchar(jobvt)], [m], [n],
-                    A, [ia], [ja], desca,
-                    s, U, [iu], [ju],
-                    descu, Vt, [ivt], [jvt],
-                    descvt, work, [lwork], info)
+                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$elty}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
+                    Ref(Cuchar(jobu)), Ref(Cuchar(jobvt)), Ref(Cint(m)), Ref(Cint(n)),
+                    A, Ref(Cint(ia)), Ref(Cint(ja)), desca,
+                    s, U, Ref(Cint(iu)), Ref(Cint(ju)),
+                    descu, Vt, Ref(Cint(ivt)), Ref(Cint(jvt)),
+                    descvt, work, Ref(lwork), info)
                 if i == 1
-                    lwork = convert(ScaInt, work[1])
+                    lwork = convert(Cint, work[1])
                     work = zeros($elty, lwork)
                 end
             end
@@ -228,13 +218,13 @@ end
 for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
                              (:pzgesvd_, :ComplexF64, :Float64))
     @eval begin
-        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{ScaInt}, s::Vector{$relty}, U::Matrix{$elty}, iu::Integer, ju::Integer, descu::Vector{ScaInt}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{ScaInt})
+        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Cint}, s::Vector{$relty}, U::Matrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Cint}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Cint})
             # extract values
 
             # check
 
             # allocate
-            info = zeros(ScaInt, 1)
+            info = zeros(Cint, 1)
             work = zeros($elty, 1)
             rwork = zeros($relty, 1 + 4*max(m, n))
             lwork = -1
@@ -242,12 +232,12 @@ for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
             # ccall
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Cvoid,
-                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{$relty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
-                     Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{$relty},
-                     Ptr{ScaInt}),
+                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{$relty}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint},
+                     Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{$relty},
+                     Ptr{Cint}),
                     [Cuchar(jobu)], [Cuchar(jobvt)], [m], [n],
                     A, [ia], [ja], desca,
                     s, U, [iu], [ju],
@@ -255,7 +245,7 @@ for (fname, elty, relty) in ((:pcgesvd_, :ComplexF32, :Float32),
                     descvt, work, [lwork], rwork,
                     info)
                 if i == 1
-                    lwork = convert(ScaInt, work[1])
+                    lwork = convert(Cint, work[1])
                     work = zeros($elty, lwork)
                 end
             end

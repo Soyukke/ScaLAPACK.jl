@@ -35,6 +35,16 @@ function gridinfo(ictxt::Integer)
     return nprow[1], npcol[1], myprow[1], mypcol[1]
 end
 
+function blacs_barrier(ictxt::Integer, scope::Char)
+    """
+    ICONTXT
+    SCOPE: 'R' or 'C' or 'A'
+    """
+    ccall((:blacs_barrier_, libscalapack), Cvoid,
+        (Ptr{Int32}, Ptr{Cuchar}),
+        Ref(Cint(ictxt)), Ref(Cuchar(scope)))
+end
+
 gridexit(ictxt::Integer) = ccall((:blacs_gridexit_, libscalapack), Cvoid, (Ptr{Int32},), [ictxt])
 
 exit(cont = 0) = ccall((:blacs_exit_, libscalapack), Cvoid, (Ptr{Int},), [cont])

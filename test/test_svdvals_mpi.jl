@@ -1,38 +1,53 @@
-debug = true
-p = 4
-n_grid, m_grid = 2, 2
-n, m = 80, 80
+debug = false
+# matrix size (m, n)
+m, n = 7, 9
 
 using Test
 using Random
 using MPI, MPIArrays
 using ScaLAPACK
+using LinearAlgebra
 
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
+n_proc = MPI.Comm_size(comm)
 
-debug && println("SVD tests")
-debug && println("eltype: Float64")
-A = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
-forlocalpart!(x->rand!(x), A)
-B = convert(Array, A)
-@test svdvals!(A) == svdvals!(B)
+for eltype in [Float32, Float64, ComplexF32, ComplexF64]
+    if rank == 0
+        println("SVD tests")
+        println("eltype: $eltype")
+    end
+    procs_grid = (2, 2)
+    blocksizes = (2, 2)
+    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksizes, m, n)
+    # A = MPIArray{eltype}(comm, (2, 2), m, n)
+    forlocalpart!(A) do lA
+        m_local, n_local = size(lA)
+        for i in 1:m_local, j in 1:n_local
+            if eltype <: Complex
+                lA[i, j] = eltype(rand() + im*rand())
+            else
+                lA[i, j] = eltype(rand())
+            end
+        end
+    end
+    sync(A)
+    B = convert(Array, A)
 
-# debug && println("eltype: Float32")
-# A = DArray(I -> float32(randn(map(length,I))), (m, n), manager)
-# B = convert(Array, A)
-# @test svdvals!(A) == svdvals!(B)
+    if rank == 0 && debug
+        show(stdout, "text/plain", A)
+        println()
+        show(stdout, "text/plain", B)
+        println()
+    end
 
-# debug && println("eltype: Complex64")
-# A = DArray(I -> complex64(complex(randn(map(length,I)), randn(map(length,I)))), (m, n), manager)
-# B = convert(Array, A)
-# @test svdvals!(A) == svdvals!(B)
-
-# debug && println("eltype: Complex128")
-# A = DArray(I -> complex(randn(map(length,I)), randn(map(length,I))), (m, n), manager)
-# B = convert(Array, A)
-# @test svdvals!(A) == svdvals!(B)
-
+    diff_svdvals = norm(svdvals!(A) - svdvals!(B))
+    if rank == 0
+        println(diff_svdvals)
+        @test diff_svdvals < 1e-5
+    end
+    free(A)
+end
 
 MPI.Finalize()

@@ -1,7 +1,5 @@
 debug = true
-p = 4
-n_grid, m_grid = 4, 1
-n, m = 4, 4
+m, n = 11, 9 
 
 using Test
 using Random
@@ -13,11 +11,14 @@ comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
 
 
-alpha, beta = 1.0, 1.0
+alpha, beta = 1.0, 0.0
 
-A = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
-B = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
-C = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
+A = MPIArray{Float64}(m, n)
+B = MPIArray{Float64}(n, m)
+C = MPIArray{Float64}(m, m)
+
+
+print("rank $rank $(localindices(B, rank))\n")
 
 fill_array! = function(x, indices)
     nb, mb = size(x)
@@ -74,7 +75,7 @@ if rank == 0
     show(stdout, "text/plain", alpha * A_test * B_test)
     println() 
 
-    @test convert(Array, C) == alpha * A_test * B_test
+    # @test convert(Array, C) == alpha * A_test * B_test
 end
 
 

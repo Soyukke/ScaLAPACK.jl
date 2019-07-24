@@ -3,12 +3,6 @@
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[BinDeps]]
-deps = ["Compat", "Libdl", "SHA", "URIParser"]
-git-tree-sha1 = "12093ca6cdd0ee547c39b1870e0c9c3f154d9ca9"
-uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
-version = "0.8.10"
-
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
 git-tree-sha1 = "84aa74986c5b9b898b0d1acaf3258741ee64754f"
@@ -57,16 +51,18 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
-deps = ["BinDeps", "Compat", "Distributed", "Libdl", "Random", "Sockets", "Test"]
-git-tree-sha1 = "b036c4e16c2e47854961896dfdbe1ec63ea6ee15"
+deps = ["Distributed", "Libdl", "Random", "Serialization", "Sockets"]
+git-tree-sha1 = "2143b732b0d82827dfe7a42e5b8ea22a7c6cf6b3"
+repo-rev = "master"
+repo-url = "https://github.com/JuliaParallel/MPI.jl.git"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 version = "0.9.0"
 
 [[MPIArrays]]
 deps = ["CustomUnitRanges", "Distributed", "DistributedArrays", "LinearAlgebra", "MPI", "Random", "Test"]
-git-tree-sha1 = "f4bd41b029624edbbd7d629bb3c42bec8f7ed1bd"
+git-tree-sha1 = "f490745af5ddd69d0abe9921bb319f746e1bbf5e"
 repo-rev = "master"
-repo-url = "https://github.com/barche/MPIArrays.jl"
+repo-url = "https://github.com/Soyukke/MPIArrays.jl"
 uuid = "b2d6846a-9a44-11e8-1eaf-cf045b2c04b1"
 version = "0.1.0"
 
@@ -123,12 +119,6 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[URIParser]]
-deps = ["Test", "Unicode"]
-git-tree-sha1 = "6ddf8244220dfda2f17539fa8c9de20d6c575b69"
-uuid = "30578b45-9adc-5946-b283-645ec420af67"
-version = "0.4.0"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]

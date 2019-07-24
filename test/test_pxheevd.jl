@@ -1,4 +1,7 @@
-N = 1024
+debug = true
+# matrix size (m, n)
+N = 93
+
 using Test
 using Random
 using MPI, MPIArrays
@@ -8,53 +11,59 @@ using LinearAlgebra
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
+n_proc = MPI.Comm_size(comm)
 
-rank == 0 && print("test pxheevd\n")
+for eltype in [ComplexF32, ComplexF64]
+    if rank == 0
+        println("eigen_hermitian tests")
+        println("eltype: $eltype")
+    end
 
-# make Hermitian
-H = MPIArray{ComplexF64}(N, N)
-if rank == 0
-    for i in 1:N, j in 1:i
-        if i == j
-            H[i, i] = rand()
-        else
-            H[i, j] = rand() + im*rand()
-            H[j, i] = H[i, j]'
+    procs_grid = (2, 2)
+    blocksize = (2, 2)
+    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, N, N)
+    forlocalpart!(A) do localarray
+        range_i, range_j = localindices(A, rank)
+        for (i, gi) in enumerate(range_i)
+            for (j, gj) in enumerate(range_j)
+                if gi==gj
+                    localarray[i, j] = gi
+                elseif gi < gj
+                    localarray[i, j] = gi + im*gj
+                else
+                    localarray[i, j] = gj - im*gi
+                end
+            end
         end
     end
+    sync(A)
+    B = convert(Array, A)
+
+    if rank == 0 && debug
+        show(stdout, "text/plain", A)
+        println()
+        show(stdout, "text/plain", B)
+        println()
+    end
+
+    eigenvalues_A, _ = eigen_hermitian(A)
+    eigenvalues_B, _ = eigen(B)
+    eigenvalues_B = sort(real(eigenvalues_B))
+
+    if rank == 0 && debug
+        show(stdout, "text/plain", eigenvalues_A)
+        println()
+        show(stdout, "text/plain", eigenvalues_B)
+        println()
+    end
+
+    diff_error = norm(eigenvalues_A - eigenvalues_B) / N
+    if rank == 0
+        println(diff_error)
+        @test diff_error < 1e-4
+    end
+    free(A)
 end
-
-sync(H)
-H_test = convert(Array, H)
-
-eigenvalues, eigenvectors = eigen_hermitian(H)
-if rank == 0
-    # println("array H")
-    # show(stdout, "text/plain", H)
-    # println()
-
-    # println("eigenvalues")
-    # show(stdout, "text/plain", eigenvalues)
-    # println()
-
-    # println("eigenvectors")
-    # show(stdout, "text/plain", eigenvectors)
-    # println() 
-
-
-    # println("LinearAlgebra.eigen")
-    # show(stdout, "text/plain", eigen(H_test))
-    # println() 
-    # @test convert(Array, C) == alpha * A_test * B_test
-
-    # LinearAlgebra.eigen
-    eigenvalues_test, _ = eigen(H_test)
-    eigenvalues_test = sort(real(eigenvalues_test))
-    eigen_diff = eigenvalues - eigenvalues_test
-    show(stdout, "text/plain", eigen_diff)
-    println() 
-    @test norm(eigen_diff) < 1e-8
-end
-
 
 MPI.Finalize()
+
