@@ -1,6 +1,5 @@
 debug = true
 p = 4
-n_grid, m_grid = 2, 2
 n, m = 8, 8
 
 using Test
@@ -13,36 +12,52 @@ comm = MPI.COMM_WORLD
 rank = MPI.Comm_rank(comm)
 
 
-alpha, beta = 1.0, 1.0
+for eltype in [Float32, Float64, ComplexF32, ComplexF64]
+    if rank == 0
+        println("A_mul_B! tests")
+        println("eltype: $eltype")
+    end
 
-A = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
-B = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
-C = MPIArray{Float64}(comm, (n_grid, m_grid), n, m)
+    procs_grid = (2, 2)
+    blocksize = (2, 2)
+    alpha, beta = 1.0, 0.0
 
+    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
+    B = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
+    C = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
 
-forlocalpart!(x->fill!(x, rank), A)
-forlocalpart!(x->fill!(x, rank), B)
-sync(A, B)
+    forlocalpart!(x->fill!(x, rank), A)
+    forlocalpart!(x->fill!(x, rank), B)
+    sync(A, B)
 
-A_test = convert(Array, A)
-B_test = convert(Array, B)
+    A_test = convert(Array, A)
+    B_test = convert(Array, B)
 
-A_mul_B!(alpha, A, B, beta, C)
+    A_mul_B!(eltype(alpha), A, B, eltype(beta), C)
 
-if rank == 0
-    println("array A")
-    show(stdout, "text/plain", A)
-    println()
+    if rank == 0
+        println("array A")
+        show(stdout, "text/plain", A)
+        println()
 
-    println("array B")
-    show(stdout, "text/plain", B)
-    println()
+        println("array B")
+        show(stdout, "text/plain", B)
+        println()
 
-    println("A_mul_B! is worked")
-    show(stdout, "text/plain", C)
-    println()
+        println("A_mul_B! C = A * B")
+        show(stdout, "text/plain", C)
+        println()
+
+        println("LinearAlgebra C = A * B")
+        show(stdout, "text/plain", A_test*B_test)
+        println()
+    end
+
+    @test convert(Array, C) == alpha * A_test * B_test
+    free(A); free(B); free(C)
 end
 
-@test convert(Array, C) == alpha * A_test * B_test
+
+
 
 MPI.Finalize()
