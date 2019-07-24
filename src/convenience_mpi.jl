@@ -184,36 +184,3 @@ function eigen_schur!(A::MPIArray{T}) where T<:Complex
     end
     return W, Z
 end
-
-function eigen_schur!(A::MPIArray{T}, v::Integer) where T<:AbstractFloat
-    n, N = Cint.(size(A))
-    NP, NQ = Cint.(size(pids(A)))
-    NB, NB2 = Cint.(blocksizes(A))
-
-    @assert n == N "m != n of matrix"
-    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
-
-    WR = Vector{T}(undef, N)
-    WI = Vector{T}(undef, N)
-    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
-
-    id, nprocs = BLACS.pinfo()
-    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
-
-    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-    LOCr_A = numroc(N, NB, myrow, 0, nprow)
-    LOCr_Z = numroc(N, NB, myrow, 0, nprow)
-
-    if nprow >= 0 && npcol >= 0
-        # Get Array info
-        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
-        dZ = descinit(N, N, NB, NB, 0, 0, ic, LOCr_Z)
-
-        if v==1
-            pXlaqr1!(N, A.localarray, dA, WR, WI, Z.localarray, dZ)
-        end
-        # clean up
-        BLACS.gridexit(ic)
-    end
-    return WR + im*WI, Z
-end
