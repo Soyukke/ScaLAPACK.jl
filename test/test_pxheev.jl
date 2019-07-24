@@ -1,4 +1,4 @@
-debug = true
+debug = false
 # matrix size (m, n)
 N = 93
 
@@ -46,7 +46,7 @@ for eltype in [ComplexF32, ComplexF64]
         println()
     end
 
-    eigenvalues_A, _ = eigen_hermitian(A)
+    eigenvalues_A, eigenvectors = eigen_hermitian(A)
     eigenvalues_B, _ = eigen(B)
     eigenvalues_B = sort(real(eigenvalues_B))
 
@@ -61,8 +61,10 @@ for eltype in [ComplexF32, ComplexF64]
     if rank == 0
         println(diff_error)
         @test diff_error < 1e-4
+        # @test all(eigenvalues_A .== typeof(real(eltype(0))).(eigenvalues_B))
     end
     free(A)
+    free(eigenvectors)
 end
 
 MPI.Finalize()

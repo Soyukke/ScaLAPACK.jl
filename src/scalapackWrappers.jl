@@ -1,3 +1,4 @@
+
 # Initialize
 function sl_init(nprow::Integer, npcol::Integer)
     ictxt = zeros(Cint, 1)
@@ -132,14 +133,102 @@ for (fname, elty) in ((:psstedc_, :Float32),
 end
 
 
+for (fname, elty) in ((:pssyev_, :Float32), (:pdsyev_, :Float64))
+    @eval begin
+        # only ccall
+        function $fname(JOBZ::Ptr{Cuchar}, UPLO::Ptr{Cuchar}, N::Ptr{Cint}, 
+            A::Matrix{$elty}, IA::Ptr{Cint}, JA::Ptr{Cint}, DESCA::Vector{Cint}, 
+            W::Vector{$elty}, Z::Matrix{$elty}, IZ::Ptr{Cint}, JZ::Ptr{Cint}, DESCZ::Vector{Cint}, 
+            WORK::Vector{$elty}, LWORK::Ptr{Cint}, INFO::Ptr{Cint})
+            """
+            JOBZ    : 'N': eigenvalues only, 'V': eigenvalues and eigenvectors
+            UPLO    : 'U': upper triangular, 'L': lower triangular
+            N       : matrix row/col size
+            A       : cyclic symmetric matrix
+            IA      : index i
+            JA      : index j
+            DESCA   : 
+            W       : out Float32/Float64, eigenvalues
+            Z       : out Float32/Float64, eigenvectors
+            IZ      : in
+            JZ      : in
+            DESCZ   : 
+            WORK    : out elty array
+            LWORK   : in Integer
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{Cint}, Ptr{$elty},
+                    Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
+                JOBZ, UPLO, N, A,
+                IA, JA, DESCA, W,
+                Z, IZ, JZ, DESCZ,
+                WORK, LWORK, INFO)
+
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+
+            return W, Z
+        end # function
+
+    end # eval begin
+end
+
+# Hermitian Eigensolves
+# for (fname, elty) in ((:pcheev_, :ComplexF32),
+#                       (:pzheev_, :ComplexF64))
+#     @eval begin
+#         function pxheev!(JOBZ::Char, UPLO::Char, N::Cint, 
+#             A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, 
+#             W::Vector{typeof(real($elty(0)))}, Z::Matrix{$elty}, IZ::Cint, JZ::Cint, DESCZ::Vector{Cint}, 
+#             WORK::Vector{$elty}, LWORK::Cint, RWORK::Vector{$elty}, LRWORK::Cint, INFO::Cint)
+#             """
+#             JOBZ    : 'N': eigenvalues only, 'V': eigenvalues and eigenvectors
+#             UPLO    : 'U': upper triangular, 'L': lower triangular
+#             N       : matrix row/col size
+#             A       : cyclic matrix Complex
+#             IA      : index i
+#             JA      : index j
+#             DESCA   : 
+#             W       : out Float32/Float64, eigenvalues
+#             Z       : out eigenvectors
+#             IZ      : in
+#             JZ      : in
+#             DESCZ   : 
+#             WORK    : out Complex array
+#             LWORK   : in Integer
+#             RWORK   : out Complex
+#             LRWORK  : in Integer
+#             INFO    : out Integer = 0 success
+#             """
+#             ccall(($(string(fname)), libscalapack), Cvoid,
+#                 (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{Cint}, Ptr{$elty},
+#                     Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{typeof(real($elty(0)))},
+#                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+#                     Ptr{$elty}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
+#                 Ref(Cuchar(JOBZ)), Ref(Cuchar(UPLO)), Ref(N), A,
+#                 Ref(IA), Ref(JA), DESCA, W,
+#                 Z, Ref(IZ), Ref(JZ), DESCZ,
+#                 WORK, Ref(LWORK), RWORK, Ref(LRWORK), Ref(INFO))
+
+#             func_name = $(string(fname))
+#             INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+
+#             return W, Z
+#         end # function
+#     end # eval begin
+# end
+
 # Hermitian Eigensolves
 for (fname, elty) in ((:pcheev_, :ComplexF32),
                       (:pzheev_, :ComplexF64))
     @eval begin
-        function pxheevd!(JOBZ::Char, UPLO::Char, N::Cint, 
+        function $fname(JOBZ::Cuchar, UPLO::Cuchar, N::Cint, 
             A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, 
             W::Vector{typeof(real($elty(0)))}, Z::Matrix{$elty}, IZ::Cint, JZ::Cint, DESCZ::Vector{Cint}, 
-            WORK::Vector{$elty}, LWORK::Cint, RWORK::Vector{$elty}, LRWORK::Cint, INFO::Cint)
+            WORK::Vector{$elty}, LWORK::Cint, RWORK::Vector{$elty}, LRWORK::Cint, INFO::Vector{Cint})
             """
             JOBZ    : 'N': eigenvalues only, 'V': eigenvalues and eigenvectors
             UPLO    : 'U': upper triangular, 'L': lower triangular
@@ -164,18 +253,40 @@ for (fname, elty) in ((:pcheev_, :ComplexF32),
                     Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{typeof(real($elty(0)))},
                     Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
                     Ptr{$elty}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
-                Ref(Cuchar(JOBZ)), Ref(Cuchar(UPLO)), Ref(N), A,
+                Ref(JOBZ), Ref(UPLO), Ref(N), A,
                 Ref(IA), Ref(JA), DESCA, W,
                 Z, Ref(IZ), Ref(JZ), DESCZ,
-                WORK, Ref(LWORK), RWORK, Ref(LRWORK), Ref(INFO))
+                WORK, Ref(LWORK), RWORK, Ref(LRWORK), INFO)
 
+        end # function
+
+        # wrap
+        function pXheev!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, W::Vector{typeof(real($elty(0)))}, Z::Matrix{$elty}, DESCZ::Vector{Cint})
+            WORK = Vector{$elty}(undef, 1)
+            LWORK::Cint = -1
+            RWORK = Vector{$elty}(undef, 1)
+            LRWORK::Cint = -1
+            INFO = Cint[0]
+    
+            $fname(Cuchar('V'), Cuchar('U'), N, A, Cint(1), Cint(1), DESCA, W, Z, Cint(1), Cint(1), DESCZ, WORK, LWORK, RWORK, LRWORK, INFO)
             func_name = $(string(fname))
             INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
 
-            return W, Z
-        end # function
+            # allocate work space memory
+            LWORK = real(WORK[1])
+            LRWORK = real(RWORK[1])
+            WORK = Vector{$elty}(undef, LWORK)
+            RWORK = Vector{$elty}(undef, LRWORK)
+
+            $fname(Cuchar('V'), Cuchar('U'), N, A, Cint(1), Cint(1), DESCA, W, Z, Cint(1), Cint(1), DESCZ, WORK, LWORK, RWORK, LRWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
     end # eval begin
 end
+
+
 
 
 # SVD solver

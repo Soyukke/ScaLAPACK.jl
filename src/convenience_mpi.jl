@@ -66,20 +66,21 @@ function svdvals!(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function eigen_hermitian(A::MPIArray{Complex{T}}) where T<:AbstractFloat
+
+function eigen_symmetric(A::MPIArray{T}) where T<:BlasFloat
     n, N = Cint.(size(A))
     @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
     NB, _ = Cint.(blocksizes(A))
 
     eigenvalues = Vector{T}(undef, N)
-    eigenvectors = CyclicMPIArray(Complex{T}, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    eigenvectors = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
 
     nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-    # hermitian
+
     npA = numroc(N, NB, myrow, 0, nprow)
     nqA = numroc(N, NB, mycol, 0, npcol)
     # eigenvectors
@@ -97,18 +98,50 @@ function eigen_hermitian(A::MPIArray{Complex{T}}) where T<:AbstractFloat
         LRWORK::Cint = -1
         INFO::Cint = 0
         # GET LWORK, LRWORK
-        pxheevd!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
+        pxheev!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
         # allocate work space memory
         LWORK = real(WORK[1])
         LRWORK = real(RWORK[1])
         WORK = Vector{Complex{T}}(undef, LWORK)
         RWORK = Vector{Complex{T}}(undef, LRWORK)
         # calculate eigenvalues / eigenvectors of hermitian matrix A
-        pxheevd!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
+        pxheev!('V', 'U', N, A.localarray, Cint(1), Cint(1), dA, eigenvalues, eigenvectors.localarray, Cint(1), Cint(1), dZ, WORK, LWORK, RWORK, LRWORK, INFO)
         # clean up
         BLACS.gridexit(ic)
         return eigenvalues, eigenvectors
     end
     return nothing
 end
+
+function eigen_hermitian(A::MPIArray{Complex{T}}) where T<:AbstractFloat
+    n, N = Cint.(size(A))
+    @assert n == N "m != n of matrix"
+    NP, NQ = Cint.(size(pids(A)))
+    NB, _ = Cint.(blocksizes(A))
+
+    eigenvalues = Vector{T}(undef, N)
+    eigenvectors = CyclicMPIArray(Complex{T}, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    # hermitian
+    npA = numroc(N, NB, myrow, 0, nprow)
+    # eigenvectors
+    npZ = numroc(N, NB, myrow, 0, nprow)
+
+    if nprow >= 0 && npcol >= 0
+        # Get Array info
+        dA = descinit(N, N, NB, NB, 0, 0, ic, npA)
+        dZ = descinit(N, N, NB, NB, 0, 0, ic, npZ)
+
+        pXheev!(N, A.localarray, dA, eigenvalues, eigenvectors.localarray, dZ)
+        # clean up
+        BLACS.gridexit(ic)
+        return eigenvalues, eigenvectors
+    end
+    return nothing
+end
+
 

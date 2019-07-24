@@ -65,7 +65,7 @@ Matrix product
 ./test/test_mul_mpi.jl
 
 Eigen hermitian
-./test/test_pxheevd.jl
+./test/test_pxheev.jl
 
 SVD
 ./test/test_svdvals_mpi.jl
