@@ -1,6 +1,6 @@
 debug = true
 p = 4
-n, m = 8, 8
+n, m = 9, 9
 
 using Test
 using Random
@@ -19,12 +19,11 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     end
 
     procs_grid = (2, 2)
-    blocksize = (2, 2)
     alpha, beta = 1.0, 0.0
 
-    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
-    B = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
-    C = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, m, n)
+    A = SLArray(eltype, m, n, proc_grids=procs_grid)
+    B = SLArray(eltype, n, m, proc_grids=procs_grid)
+    C = SLArray(eltype, n, n, proc_grids=procs_grid)
 
     forlocalpart!(x->fill!(x, rank), A)
     forlocalpart!(x->fill!(x, rank), B)

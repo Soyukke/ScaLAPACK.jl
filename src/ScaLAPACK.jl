@@ -13,6 +13,7 @@ end
 moduledir = pathof(ScaLAPACK) |> dirname |> dirname
 const libscalapack = joinpath(moduledir, "deps", "libscalapack.so")
 
+include("slarrays.jl")
 include("blacs.jl")
 include("scalapackWrappers.jl")
 include("convenience_mpi.jl")

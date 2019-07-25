@@ -12,7 +12,7 @@ end
 function numroc(n::Integer, nb::Integer, iproc::Integer, isrcproc::Integer, nprocs::Integer)
     ccall((:numroc_, libscalapack), Cint,
         (Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
-        [n], [nb], [iproc], [isrcproc], [nprocs])
+        Ref(Cint(n)), Ref(Cint(nb)), Ref(Cint(iproc)), Ref(Cint(isrcproc)), Ref(Cint(nprocs)))
 end
 
 # Array descriptor
@@ -40,9 +40,9 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
         (Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
          Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
          Ptr{Cint}, Ptr{Cint}),
-        desc, [m], [n], [mb],
-        [nb], [irsrc], [icsrc], [ictxt],
-        [lld], info)
+        desc, Ref(Cint(m)), Ref(Cint(n)), Ref(Cint(mb)),
+        Ref(Cint(nb)), Ref(Cint(irsrc)), Ref(Cint(icsrc)), Ref(Cint(ictxt)),
+        Ref(Cint(lld)), info)
 
     info[1] == 0 || error("input argument $(info[1]) has illegal value")
 
@@ -61,9 +61,9 @@ for (fname, elty) in ((:psgemr2d_, :Float32),
                 (Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
                  Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
                  Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
-                [m], [n], A, [ia],
-                [ja], desca, B, [ib],
-                [jb], descb, [ictxt])
+                Ref(Cint(m)), Ref(Cint(n)), A, Ref(Cint(ia)),
+                Ref(Cint(ja)), desca, B, Ref(Cint(ib)),
+                Ref(Cint(jb)), descb, Ref(Cint(ictxt)))
         end
     end
 end
@@ -86,11 +86,11 @@ for (fname, elty) in ((:psgemm_, :Float32),
                  Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{Cint},
                  Ptr{Cint}, Ptr{Cint}, Ptr{$elty}, Ptr{$elty},
                  Ptr{Cint}, Ptr{Cint}, Ptr{Cint}),
-                [Cuchar(transa)], [Cuchar(transb)], [m], [n],
-                [k], [α], A, [ia],
-                [ja], desca, B, [ib],
-                [jb], descb, [β], C,
-                [ic], [jc], descc)
+                Ref(Cuchar(transa)), Ref(Cuchar(transb)), Ref(Cint(m)), Ref(Cint(n)),
+                Ref(Cint(k)), Ref(α), A, Ref(Cint(ia)),
+                Ref(Cint(ja)), desca, B, Ref(Cint(ib)),
+                Ref(Cint(jb)), descb, Ref(β), C,
+                Ref(Cint(ic)), Ref(Cint(jc)), descc)
         end
     end
 end

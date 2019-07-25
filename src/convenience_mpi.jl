@@ -4,7 +4,7 @@ export svdvals!, A_mul_B!, eigen_hermitian
 export hessenberg!, eigen_schur!
 
 # BlasFloat is Union{Complex{Float32}, Complex{Float64}, Float32, Float64}
-function A_mul_B!(α::T, A::MPIArray{T}, B::MPIArray{T}, β::T, C::MPIArray{T}) where T <: BlasFloat
+function A_mul_B!(α::T, A::SLArray{T}, B::SLArray{T}, β::T, C::SLArray{T}) where T <: BlasFloat
     # global matrix size
     m_A, n_A = size(A)
     m_B, n_B = size(B)
@@ -46,7 +46,7 @@ function A_mul_B!(α::T, A::MPIArray{T}, B::MPIArray{T}, β::T, C::MPIArray{T}) 
     return C
 end
 
-function svdvals!(A::MPIArray{T}) where T<:BlasFloat
+function svdvals!(A::SLArray{T}) where T<:BlasFloat
     m, n = size(A)
     m_blocksize, n_blocksize = blocksizes(A)
     m_proc_grid, n_proc_grid = size(pids(A))
@@ -70,14 +70,14 @@ function svdvals!(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function eigen_hermitian(A::MPIArray{T}) where T<:BlasFloat
+function eigen_hermitian(A::SLArray{T}) where T<:BlasFloat
     n, N = Cint.(size(A))
     @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
     NB, _ = Cint.(blocksizes(A))
 
     eigenvalues = Vector{typeof(real(T(0)))}(undef, N)
-    eigenvectors = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    eigenvectors = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -101,7 +101,7 @@ function eigen_hermitian(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function hessenberg!(A::MPIArray{T}) where T<:BlasFloat
+function hessenberg!(A::SLArray{T}) where T<:BlasFloat
     n, N = Cint.(size(A))
     @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
@@ -126,7 +126,7 @@ function hessenberg!(A::MPIArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function eigen_schur!(A::MPIArray{T}) where T<:AbstractFloat
+function eigen_schur!(A::SLArray{T}) where T<:AbstractFloat
     n, N = Cint.(size(A))
     NP, NQ = Cint.(size(pids(A)))
     NB, NB2 = Cint.(blocksizes(A))
@@ -136,7 +136,7 @@ function eigen_schur!(A::MPIArray{T}) where T<:AbstractFloat
 
     WR = Vector{T}(undef, N)
     WI = Vector{T}(undef, N)
-    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    Z = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -156,7 +156,7 @@ function eigen_schur!(A::MPIArray{T}) where T<:AbstractFloat
     return WR + im*WI, Z
 end
 
-function eigen_schur!(A::MPIArray{T}) where T<:Complex
+function eigen_schur!(A::SLArray{T}) where T<:Complex
     n, N = Cint.(size(A))
     NP, NQ = Cint.(size(pids(A)))
     NB, NB2 = Cint.(blocksizes(A))
@@ -165,7 +165,7 @@ function eigen_schur!(A::MPIArray{T}) where T<:Complex
     @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
 
     W = Vector{T}(undef, N)
-    Z = CyclicMPIArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    Z = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
