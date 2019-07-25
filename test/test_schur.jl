@@ -14,7 +14,7 @@ n_proc = MPI.Comm_size(comm)
 
 for elty in (Float32, Float64, ComplexF32, ComplexF64)
 # for elty in [ComplexF64]
-    A = CyclicMPIArray(elty, N, N, proc_grids=(2, 2), blocksizes=(6, 6))
+    A = SLArray(elty, N, N, proc_grids=(2, 2))
     forlocalpart!(x->rand!(x), A)
     sync(A)
 

@@ -80,8 +80,6 @@ function test_multiply2()
 end
 
 
-
-
 # show_slarray()
 # test_multiply()
 test_multiply2()

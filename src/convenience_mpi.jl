@@ -77,7 +77,7 @@ function eigen_hermitian(A::SLArray{T}) where T<:BlasFloat
     NB, _ = Cint.(blocksizes(A))
 
     eigenvalues = Vector{typeof(real(T(0)))}(undef, N)
-    eigenvectors = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    eigenvectors = SLArray(T, proc_grids=(NP, NQ), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -103,9 +103,11 @@ end
 
 function hessenberg!(A::SLArray{T}) where T<:BlasFloat
     n, N = Cint.(size(A))
-    @assert n == N "m != n of matrix"
     NP, NQ = Cint.(size(pids(A)))
     NB, _ = Cint.(blocksizes(A))
+
+    @assert n == N "m != n of matrix"
+    @assert NP == NQ "proccess grid NP != NQ"
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -132,11 +134,12 @@ function eigen_schur!(A::SLArray{T}) where T<:AbstractFloat
     NB, NB2 = Cint.(blocksizes(A))
 
     @assert n == N "m != n of matrix"
-    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
+    @assert NP == NQ "proccess grid NP != NQ"
+    @assert NB == NB2 && NB >= 6  "bocksizes NB1 != NB2, NB1 >= 6"
 
     WR = Vector{T}(undef, N)
     WI = Vector{T}(undef, N)
-    Z = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    Z = SLArray(T, proc_grids=(NP, NQ), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -165,7 +168,7 @@ function eigen_schur!(A::SLArray{T}) where T<:Complex
     @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
 
     W = Vector{T}(undef, N)
-    Z = SLArray(T, proc_grids=(NP, NQ), blocksizes=(NB, NB), N, N)
+    Z = SLArray(T, proc_grids=(NP, NQ), N, N)
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major

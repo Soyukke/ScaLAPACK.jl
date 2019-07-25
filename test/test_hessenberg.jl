@@ -13,7 +13,7 @@ rank = MPI.Comm_rank(comm)
 n_proc = MPI.Comm_size(comm)
 
 for elty in (Float32, Float64, ComplexF32, ComplexF64)
-    A = CyclicMPIArray(elty, N, N)
+    A = SLArray(elty, N, N, proc_grids=(2, 2))
     forlocalpart!(x->rand!(x), A)
     sync(A)
 

@@ -20,8 +20,7 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     end
 
     procs_grid = (2, 2)
-    blocksize = (2, 2)
-    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksize, N, N)
+    A = SLArray(eltype, proc_grids=procs_grid, N, N)
     forlocalpart!(A) do localarray
         range_i, range_j = localindices(A, rank)
         for (i, gi) in enumerate(range_i)
