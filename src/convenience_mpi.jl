@@ -1,7 +1,8 @@
-import LinearAlgebra.svdvals!
-import LinearAlgebra.hessenberg!
 export svdvals!, A_mul_B!, eigen_hermitian
-export eigen_schur!
+export eigen_schur!, eigen
+
+import LinearAlgebra.svdvals!
+import LinearAlgebra.eigen
 
 # BlasFloat is Union{Complex{Float32}, Complex{Float64}, Float32, Float64}
 function A_mul_B!(α::T, A::SLArray{T}, B::SLArray{T}, β::T, C::SLArray{T}) where T <: BlasFloat
@@ -133,31 +134,13 @@ function eigen_schur!(A::SLArray{T, 2}) where T<:AbstractFloat
     return WR + im*WI, Z
 end
 
-function schur!(A::SLArray{T, 2}) where T<:Complex
-    n, N = Cint.(size(A))
-    NP, NQ = Cint.(size(pids(A)))
-    NB, NB2 = Cint.(blocksizes(A))
 
-    @assert n == N "m != n of matrix"
-    @assert NB == NB2 && NB >= 6  "NB1 != NB2, NB1 >= 6"
-
-    W = Vector{T}(undef, N)
-    Z = SLArray(T, proc_grids=(NP, NQ), N, N)
-
-    id, nprocs = BLACS.pinfo()
-    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
-
-    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-    LOCr_A = numroc(N, NB, myrow, 0, nprow)
-    LOCr_Z = numroc(N, NB, myrow, 0, nprow)
-
-    if nprow >= 0 && npcol >= 0
-        # Get Array info
-        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
-        dZ = descinit(N, N, NB, NB, 0, 0, ic, LOCr_Z)
-        pXlahqr!(N, A.localarray, dA, W, Z.localarray, dZ)
-        # clean up
-        BLACS.gridexit(ic)
-    end
-    return W, Z
+function eigen(A::SLMatrix{T}) where T <: BlasFloat
+    B = copy(A)
+    # B = hess.Q * hess.H * hess.Q'
+    hess = hessenberg!(B)
+    # H = xchu.Z * schu.T * schu.Z', T is upper triangular matrix
+    schu = schur!(hess.H)
+    free(hess.H, hess.Q, schu.T, schu.Z)
+    return schu.values
 end

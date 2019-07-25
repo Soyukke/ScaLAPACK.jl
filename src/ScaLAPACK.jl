@@ -20,5 +20,6 @@ include("scalapackWrappers.jl")
 include("convenience_mpi.jl")
 include("linalg.jl")
 include("hessenberg.jl")
+include("schur.jl")
 
 end # module

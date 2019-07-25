@@ -118,6 +118,10 @@ function test_multiply4()
     B_test = convert(Array, B)
     C = B * A * A * B
     C_true = B_test * A_test * A_test * B_test
+    # if rank == 0
+    #     show(stdout, "text/plain", C)
+    #     println()
+    # end
     @show norm(C - C_true)
     free(A, B, C)
 end
@@ -150,12 +154,12 @@ function test_adjoint()
 end
 
 
-show_slarray()
-test_multiply()
-test_multiply2()
-test_multiply3()
+# show_slarray()
+# test_multiply()
+# test_multiply2()
+# test_multiply3()
 test_multiply4()
-test_adjoint()
+# test_adjoint()
 
 MPI.Finalize()
 
