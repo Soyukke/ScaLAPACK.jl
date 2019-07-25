@@ -391,6 +391,70 @@ for (fname, elty) in ((:psgehrd_, :Float32), (:pdgehrd_, :Float64), (:pcgehrd_, 
     end # eval begin
 end
 
+# pXgehrd -> 
+for (fname, elty) in ((:psormhr_, :Float32), (:pdormhr_, :Float64), (:pcunmhr_, :ComplexF32), (:pzunmhr_, :ComplexF64))
+    @eval begin
+        function $fname(SIDE::Cuchar, TRANS::Cuchar, M::Cint, N::Cint, ILO::Cint, IHI::Cint, 
+            A::Matrix{$elty}, IA::Cint, JA::Cint, DESCA::Vector{Cint}, TAU::Vector{$elty},
+            C::Matrix{$elty}, IC::Cint, JC::Cint, DESCC::Vector{Cint},
+            WORK::Vector{$elty}, LWORK::Cint, INFO::Vector{Cint})
+            """
+            SIDE    : 'L', 'R'
+            TRANS   : 'N', 'T' transpose Q
+            M       : matrix row size C
+            N       : matrix col size C
+            ILO     : upper triangular
+            IHI     : upper triangular
+            A       : cyclic matrix local matrix
+            IA      : local index i
+            JA      : local index j
+            DESCA   : descriptor of A
+            TAU     : (local output) size NUMROC(JA+M-2, NB_A, MYCOL, CSRC_A, NPCOL) if SIDE='L', NUMROC(JA+M-2, NB_A, MYCOL, CSRC_A, NPCOL) if SIDE='R'
+            C       : cyclic matrix local matrix
+            IC      : local index i
+            JC      : local index j
+            DESCC   : descriptor of C
+            WORK    : out Complex array
+            LWORK   : in Integer
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{$elty},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint}, Ptr{Cint}),
+                Ref(SIDE), Ref(TRANS), Ref(M), Ref(N), Ref(ILO), Ref(IHI),
+                A, Ref(IA), Ref(JA), DESCA, TAU,
+                C, Ref(IC), Ref(JC), DESCC,
+                WORK, Ref(LWORK), INFO)
+        end # function
+
+        # wrap
+        function pXunmhr!(M::Cint, N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, TAU::Vector{$elty}, C::Matrix{$elty}, DESCC::Vector{Cint})
+            WORK = Vector{$elty}(undef, 1)
+            LWORK::Cint = -1
+            INFO = Cint[0]
+            ILO::Cint = 1
+            IHI::Cint = M
+    
+            $fname(Cuchar('L'), Cuchar('N'), M, N, ILO, IHI, A, Cint(1), Cint(1), DESCA, TAU, C, Cint(1), Cint(1), DESCC, WORK, LWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+
+            # allocate work space memory
+            LWORK = real(WORK[1])
+            WORK = Vector{$elty}(undef, LWORK)
+
+            $fname(Cuchar('L'), Cuchar('N'), M, N, ILO, IHI, A, Cint(1), Cint(1), DESCA, TAU, C, Cint(1), Cint(1), DESCC, WORK, LWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+
+
+
 
 for (fname, elty) in ((:pslahqr_, :Float32), (:pdlahqr_, :Float64))
     @eval begin

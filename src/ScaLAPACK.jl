@@ -15,7 +15,10 @@ const libscalapack = joinpath(moduledir, "deps", "libscalapack.so")
 
 include("slarrays.jl")
 include("blacs.jl")
+include("pblas.jl")
 include("scalapackWrappers.jl")
 include("convenience_mpi.jl")
+include("linalg.jl")
+include("hessenberg.jl")
 
 end # module

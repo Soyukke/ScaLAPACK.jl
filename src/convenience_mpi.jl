@@ -1,7 +1,7 @@
 import LinearAlgebra.svdvals!
 import LinearAlgebra.hessenberg!
 export svdvals!, A_mul_B!, eigen_hermitian
-export hessenberg!, eigen_schur!
+export eigen_schur!
 
 # BlasFloat is Union{Complex{Float32}, Complex{Float64}, Float32, Float64}
 function A_mul_B!(α::T, A::SLArray{T}, B::SLArray{T}, β::T, C::SLArray{T}) where T <: BlasFloat
@@ -43,7 +43,7 @@ function A_mul_B!(α::T, A::SLArray{T}, B::SLArray{T}, β::T, C::SLArray{T}) whe
         # cleanup
         BLACS.gridexit(ic)
     end
-    return C
+    return nothing
 end
 
 function svdvals!(A::SLArray{T}) where T<:BlasFloat
@@ -101,34 +101,8 @@ function eigen_hermitian(A::SLArray{T}) where T<:BlasFloat
     return nothing
 end
 
-function hessenberg!(A::SLArray{T}) where T<:BlasFloat
-    n, N = Cint.(size(A))
-    NP, NQ = Cint.(size(pids(A)))
-    NB, _ = Cint.(blocksizes(A))
 
-    @assert n == N "m != n of matrix"
-    @assert NP == NQ "proccess grid NP != NQ"
-
-    id, nprocs = BLACS.pinfo()
-    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
-
-    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-    LOCr_A = numroc(N, NB, myrow, 0, nprow)
-    IA, JA = 1, 1
-    LOCc_TAU = numroc(IA+N-2, NB, mycol, 0, npcol)
-    TAU = Vector{T}(undef, LOCc_TAU)
-
-    if nprow >= 0 && npcol >= 0
-        # Get Array info
-        dA = descinit(N, N, NB, NB, 0, 0, ic, LOCr_A)
-        pXgehrd!(N, A.localarray, dA, TAU)
-        # clean up
-        BLACS.gridexit(ic)
-    end
-    return nothing
-end
-
-function eigen_schur!(A::SLArray{T}) where T<:AbstractFloat
+function eigen_schur!(A::SLArray{T, 2}) where T<:AbstractFloat
     n, N = Cint.(size(A))
     NP, NQ = Cint.(size(pids(A)))
     NB, NB2 = Cint.(blocksizes(A))
@@ -159,7 +133,7 @@ function eigen_schur!(A::SLArray{T}) where T<:AbstractFloat
     return WR + im*WI, Z
 end
 
-function eigen_schur!(A::SLArray{T}) where T<:Complex
+function schur!(A::SLArray{T, 2}) where T<:Complex
     n, N = Cint.(size(A))
     NP, NQ = Cint.(size(pids(A)))
     NB, NB2 = Cint.(blocksizes(A))
