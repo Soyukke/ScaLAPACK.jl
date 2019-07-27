@@ -37,7 +37,8 @@ mpiifort -shared -o libscalapack.so -mkl -lmkl_scalapack_lp64 -lmkl_blacs_intelm
 using ScaLAPACK, MPI, MPIArrays
 
 MPI.Init()
-A = CyclicMPIArray(Float64, 8, 8)
+# 12 x 12 matrix, process grid is 2 x 2, blocksize is 2 x 2
+A = SLMatrix{Float64}(12, 12, proc_grids=(2, 2), blocksizes=(2, 2))
 
 forlocalpart!(A) do localA
 end
