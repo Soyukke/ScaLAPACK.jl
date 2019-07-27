@@ -20,7 +20,7 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     end
     procs_grid = (2, 2)
     blocksizes = (2, 2)
-    A = CyclicMPIArray(eltype, proc_grids=procs_grid, blocksizes=blocksizes, m, n)
+    A = SLMatrix{eltype}(m, n, proc_grids=procs_grid, blocksizes=blocksizes)
     # A = MPIArray{eltype}(comm, (2, 2), m, n)
     forlocalpart!(A) do lA
         m_local, n_local = size(lA)

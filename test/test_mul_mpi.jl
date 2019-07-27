@@ -68,9 +68,9 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     blocksizes = (2, 2)
     alpha, beta = 1.0, 0.0
 
-    A = SLArray{eltype}(m, n, proc_grids=procs_grid, blocksizes=blocksizes)
-    B = SLArray{eltype}(n, m, proc_grids=procs_grid, blocksizes=blocksizes)
-    C = SLArray{eltype}(n, n, proc_grids=procs_grid, blocksizes=blocksizes)
+    A = SLMatrix{eltype}(m, n, proc_grids=procs_grid, blocksizes=blocksizes)
+    B = SLMatrix{eltype}(n, m, proc_grids=procs_grid, blocksizes=blocksizes)
+    C = SLMatrix{eltype}(n, n, proc_grids=procs_grid, blocksizes=blocksizes)
 
     forlocalpart!(x->fill!(x, rank), A)
     forlocalpart!(x->fill!(x, rank), B)
@@ -114,9 +114,9 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     blocksizes = (1, 1)
     alpha, beta = 1.0, 0.0
 
-    A = SLArray{eltype}(m, n, proc_grids=procs_grid, blocksizes=blocksizes)
-    B = SLArray{eltype}(n, m, proc_grids=procs_grid, blocksizes=blocksizes)
-    C = SLArray{eltype}(n, n, proc_grids=procs_grid, blocksizes=blocksizes)
+    A = SLMatrix{eltype}(m, n, proc_grids=procs_grid, blocksizes=blocksizes)
+    B = SLMatrix{eltype}(n, m, proc_grids=procs_grid, blocksizes=blocksizes)
+    C = SLMatrix{eltype}(n, n, proc_grids=procs_grid, blocksizes=blocksizes)
 
     forlocalpart!(x->fill!(x, rank), A)
     forlocalpart!(x->fill!(x, rank), B)

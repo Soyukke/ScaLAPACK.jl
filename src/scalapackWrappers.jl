@@ -391,7 +391,7 @@ for (fname, elty) in ((:psgehrd_, :Float32), (:pdgehrd_, :Float64), (:pcgehrd_, 
     end # eval begin
 end
 
-# pXgehrd -> 
+# pXgehrd -> get hessenberg Q
 for (fname, elty) in ((:psormhr_, :Float32), (:pdormhr_, :Float64), (:pcunmhr_, :ComplexF32), (:pzunmhr_, :ComplexF64))
     @eval begin
         function $fname(SIDE::Cuchar, TRANS::Cuchar, M::Cint, N::Cint, ILO::Cint, IHI::Cint, 
@@ -453,9 +453,6 @@ for (fname, elty) in ((:psormhr_, :Float32), (:pdormhr_, :Float64), (:pcunmhr_, 
     end # eval begin
 end
 
-
-
-
 for (fname, elty) in ((:pslahqr_, :Float32), (:pdlahqr_, :Float64))
     @eval begin
         function $fname(WANTT::Bool , WANTZ::Bool, N::Cint,
@@ -494,10 +491,8 @@ for (fname, elty) in ((:pslahqr_, :Float32), (:pdlahqr_, :Float64))
         end # function
 
         # wrap
-        function pXlahqr!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, WR::Vector{$elty}, WI::Vector{$elty}, Z::Matrix{$elty}, DESCZ::Vector{Cint})
-            dp_alloc = 200000000
-            WORK = Vector{$elty}(undef, dp_alloc)
-            LWORK::Cint = dp_alloc
+        function pXlahqr!(N::Cint, A::Matrix{$elty}, DESCA::Vector{Cint}, WR::Vector{$elty}, WI::Vector{$elty}, Z::Matrix{$elty}, DESCZ::Vector{Cint}, LWORK::Cint)
+            WORK = Vector{$elty}(undef, LWORK)
             IWORK = Vector{Cint}(undef, 1)
             ILWORK::Cint = -1
 

@@ -59,13 +59,12 @@ $ mpiexec -np 4 julia sample.jl
 
 
 
-## Example
+## code examples
 
-Matrix product
-./test/test_mul_mpi.jl
+[Matrix product](./test/test_mul_mpi.jl)
 
-Eigen hermitian
-./test/test_pxheev.jl
+[Eigen hermitian](./test/test_pxheev.jl)
 
-SVD
-./test/test_svdvals_mpi.jl
+[Eigen general complex](./test/test_eigen.jl)
+
+[SVD](./test/test_svdvals_mpi.jl)

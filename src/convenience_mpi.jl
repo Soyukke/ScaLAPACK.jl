@@ -161,6 +161,41 @@ function eigenvectors_upper_triangular!(A::SLArray{T, 2}, VR::SLArray{T, 2}) whe
     BLACS.gridexit(ic)
 end
 
+function eigenvectors_upper_triangular!(A::SLArray{T, 2}, VR::SLArray{T, 2}) where T <: AbstractFloat
+    # copy A{T<:AbstractFloat} -> B{T<:Complex}
+    n, N = Cint.(size(A))
+    NP, NQ = Cint.(size(pids(A)))
+    NB, NB2 = Cint.(blocksizes(A))
+    @assert n == N "m != n of matrix"
+    @assert NP == NQ "proccess grid NP != NQ"
+    # copy AbstractFloat A to Complex B
+    A_complex = SLMatrix{Complex{T}}(N, N, proc_grids=(NP, NQ), blocksizes=(NB, NB))
+    forlocalpart!(A_complex) do lA
+        lA .= A.localarray
+    end
+    VR_complex = SLMatrix{Complex{T}}(N, N, proc_grids=(NP, NQ), blocksizes=(NB, NB))
+    forlocalpart!(VR_complex) do lVR
+        lVR .= VR.localarray
+    end
+    sync(A_complex, VR_complex)
+
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    LOCr_VR = numroc(N, NB, myrow, 0, nprow)
+    LLD_A = max(1, LOCr_A)
+    # Get Array info
+    DESCA = descinit(N, N, NB, NB2, 0, 0, ic, LOCr_A)
+    DESCVR = descinit(N, N, NB, NB2, 0, 0, ic, LOCr_VR)
+    # TODO: work space size is it correct ?
+    pXtrevc!('R', 'B', Bool[true], N, A_complex.localarray, DESCA, Matrix{Complex{T}}(undef, 0, 0), DESCVR, VR_complex.localarray, DESCVR, N)
+    # clean up
+    BLACS.gridexit(ic)
+end
+
+
 """
     Input: A
     pzgehrd_ -> pXhseqr_ -> pXtrevc_
@@ -173,14 +208,35 @@ end
     T*x = (Z'*H*Z) * x = (Z'*Q'*A*Q*Z) * x = w*x
     A*(Q*Z*x) = w*(Q*Z*x)
 """
-function eigen(A::SLMatrix{T1}) where T1 <: BlasFloat
-    # input 
-    B = copy(A)
+function eigen!(A::SLMatrix{T1}) where T1 <: BlasFloat
     # B = hess.Q * hess.H * hess.Q'
-    hess = hessenberg!(B)
+    hess = hessenberg!(A)
     # H = schu.Z * schu.T * schu.Z', T is upper triangular matrix
     schu = schur!(hess.H, hess.Q)
+    N, _ = size(A)
     # schu.T # upper triangular
     eigenvectors_upper_triangular!(schu.T, schu.Z)
+
+    MPI.Barrier(MPI.COMM_WORLD)
     return schu.values, schu.Z
 end
+
+function eigen(A::SLMatrix{T1}) where T1 <: Complex
+    # input 
+    B = copy(A)
+    return eigen!(B)
+end
+
+function eigen(A::SLMatrix{T1}) where T1 <: AbstractFloat
+    # input 
+    N, _ = size(A)
+    proc_grids = size(pids(A))
+    blocksizes_ = blocksizes(A)
+    A_complex = SLMatrix{Complex{T1}}(N, N, proc_grids=proc_grids, blocksizes=blocksizes_)
+    forlocalpart!(A_complex) do lA
+        lA .= A.localarray
+    end
+    sync(A_complex)
+    return eigen!(A_complex)
+end
+
