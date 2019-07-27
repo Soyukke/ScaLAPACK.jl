@@ -12,7 +12,7 @@ Base.:*(A::SLArray{T, 2}, B::SLArray{T, 2}) where T = begin
     blocksizes_B = blocksizes(B)
     @assert proc_grid_A == proc_grid_B
 
-    C = SLArray(T, m_A, n_B, proc_grids=proc_grid_A)
+    C = SLMatrix{T}(m_A, n_B, proc_grids=proc_grid_A, blocksizes=blocksizes_A)
     A_mul_B!(alpha, A, B, beta, C)
     return C
 end

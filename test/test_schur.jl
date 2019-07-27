@@ -45,16 +45,16 @@ function only_schur2()
         forlocalpart!(x->rand!(x), A)
         sync(A)
 
-        A_test = convert(Array, A)
-        eigenvalues, _ = eigen(A_test)
+        # A_test = convert(Array, A)
+        # eigenvalues, _ = eigen(A_test)
 
         HA = hessenberg!(A)
-        hessenberg!(A_test)
+        # hessenberg!(A_test)
 
         H = HA.H
         SCH = schur!(H)
         
-        B = convert(Array, A)
+        # B = convert(Array, A)
 
         if rank == 0
             println("Z")

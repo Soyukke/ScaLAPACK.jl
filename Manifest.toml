@@ -60,7 +60,7 @@ version = "0.9.0"
 
 [[MPIArrays]]
 deps = ["CustomUnitRanges", "Distributed", "DistributedArrays", "LinearAlgebra", "MPI", "Random", "Test"]
-git-tree-sha1 = "79b1f6b1d1993d58e793233ea3692ab7fc63e020"
+git-tree-sha1 = "41260e8f8b5c992e4f68427604c4675914b45b82"
 repo-rev = "master"
 repo-url = "https://github.com/Soyukke/MPIArrays.jl"
 uuid = "b2d6846a-9a44-11e8-1eaf-cf045b2c04b1"

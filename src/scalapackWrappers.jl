@@ -579,3 +579,66 @@ for (fname, elty) in ((:pclahqr_, :ComplexF32), (:pzlahqr_, :ComplexF64))
 
     end # eval begin
 end
+
+for (fname, elty) in ((:pctrevc_, :ComplexF32), (:pztrevc_, :ComplexF64))
+    @eval begin
+        ```
+            compute eigenvectors of a upper triangular matrix T
+        ```
+        function $fname(SIDE::Cuchar, HOWMNY::Cuchar, SELECT::Vector{Cint}, N::Cint,
+            T::Matrix{$elty}, DESCT::Vector{Cint}, 
+            VL::Matrix{$elty}, DESCVL::Vector{Cint},
+            VR::Matrix{$elty}, DESCVR::Vector{Cint},
+            MM::Cint, M::Vector{Cint},
+            WORK::Vector{$elty}, RWORK::Vector{typeof(real($elty(0)))}, INFO::Vector{Cint})
+            """
+            SIDE    : 'R' compute right eigenvectors only, 'L' , 'B' compute both
+            HOWMNY  : 'A': compute all eigenvectors, 'B':, 'S': compute selected eigenvectors
+            SELECT  : logical array if HOWMNY = 'A' or 'B', SELECT is not refferenced.
+            N       : T matrix row/col size
+            T       : upper triangular matrix
+            DESCT   : descriptor of T
+            VL      : 
+            DESCVL  :
+            VR      : 
+            DESCVR  :
+            MM      : (global input) number of col VL and/or VR MM >= M
+            M       : (global output)
+            WORK    : out Complex array
+            RWORK
+            INFO    : out Integer = 0 success
+            """
+            ccall(($(string(fname)), libscalapack), Cvoid,
+                (Ptr{Cuchar}, Ptr{Cuchar}, Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{Cint},
+                    Ptr{Cint}, Ptr{Cint},
+                    Ptr{$elty}, Ptr{typeof(real($elty(0)))}, Ptr{Cint}),
+                Ref(SIDE), Ref(HOWMNY), SELECT, Ref(N),
+                T, DESCT,
+                VL, DESCVL,
+                VR, DESCVR,
+                Ref(MM), M,
+                WORK, RWORK, INFO)
+        end # function
+
+        # wrap
+        function pXtrevc!(SIDE::Char, HOWMNY::Char, SELECT::Vector{Bool}, N::Integer, T::Matrix{$elty}, DESCT::Vector{Cint}, 
+            VL::Matrix{$elty}, DESCVL::Vector{Cint}, VR::Matrix{$elty}, DESCVR::Vector{Cint}, LLD_T::Integer)
+            MM = N
+            M = Cint[-1]
+            WORK = Vector{$elty}(undef, 2*LLD_T)
+            RWORK = Vector{typeof(real($elty(0)))}(undef, LLD_T)
+            INFO = Cint[-1]
+    
+            $fname(Cuchar(SIDE), Cuchar(HOWMNY), Cint.(SELECT), Cint(N),
+            T, DESCT, VL, DESCVL, VR, DESCVR, 
+            MM, M, WORK, RWORK, INFO)
+            func_name = $(string(fname))
+            INFO[1] != 0 && print("error in $(func_name) INFO=$(INFO[1])\n")
+        end # wrap function
+
+    end # eval begin
+end
+

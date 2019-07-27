@@ -19,7 +19,7 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
         println("eltype: $eltype")
     end
 
-    procs_grid = (2, 2)
+    procs_grid = Int.((sqrt(n_proc), sqrt(n_proc)))
     A = SLArray(eltype, proc_grids=procs_grid, N, N)
     forlocalpart!(A) do localarray
         range_i, range_j = localindices(A, rank)
@@ -50,18 +50,17 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
     end
 
     eigenvalues_A, eigenvectors = eigen_hermitian(A)
-    eigenvalues_B, _ = eigen(B)
-    eigenvalues_B = sort(real(eigenvalues_B))
 
-    if rank == 0 && debug
+    if rank == 0
+        eigenvalues_B, _ = eigen(B)
+        eigenvalues_B = sort(real(eigenvalues_B))
+        diff_error = norm(eigenvalues_A - eigenvalues_B) / N
+
         show(stdout, "text/plain", eigenvalues_A)
         println()
         show(stdout, "text/plain", eigenvalues_B)
         println()
-    end
 
-    diff_error = norm(eigenvalues_A - eigenvalues_B) / N
-    if rank == 0
         println(diff_error)
         @test diff_error < 1e-4
         # @test all(eigenvalues_A .== typeof(real(eltype(0))).(eigenvalues_B))

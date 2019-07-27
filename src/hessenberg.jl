@@ -1,6 +1,6 @@
 export hessenberg!
 
-import LinearAlgebra: Factorization, AbstractQ
+import LinearAlgebra: Factorization, AbstractQ, hessenberg!
 
 struct SLHessenberg{T} <: Factorization{T}
     factors::SLArray{T, 2}
@@ -58,12 +58,12 @@ end
 function HessenbergQ(A::SLHessenberg{T}) where T
     M, N = Cint.(size(A.factors))
     NP, NQ = Cint.(size(pids(A.factors)))
-    NB, _ = Cint.(blocksizes(A.factors))
+    NB, NB2 = Cint.(blocksizes(A.factors))
 
     @assert NP == NQ "proccess grid NP != NQ"
 
     # Identity matrix
-    C = SLArray(T, proc_grids=(NP, NQ), M, N)
+    C = SLMatrix{T}(M, N, proc_grids=(NP, NQ), blocksizes=(NB, NB2))
     forlocalpart!(C) do lC
         gi, gj = localindices(C)
         for (li, gi) in enumerate(gi)

@@ -118,11 +118,28 @@ function test_multiply4()
     B_test = convert(Array, B)
     C = B * A * A * B
     C_true = B_test * A_test * A_test * B_test
-    # if rank == 0
-    #     show(stdout, "text/plain", C)
-    #     println()
-    # end
-    @show norm(C - C_true)
+    C_test = convert(Array, C)
+
+    print("ok1\n")
+    MPI.Barrier(comm)
+    print("ok2\n")
+    MPI.Barrier(comm)
+
+
+    if rank == 0
+        # print("ok")
+        # print(C_test)
+        # show(stdout, "text/plain", A)
+        show(stdout, "text/plain", C_test)
+        # f = open("slshow.dat", "w")
+        # show(f, "text/plain", C)
+        # close(f)
+    end
+
+    print("ok3\n")
+    MPI.Barrier(comm)
+
+    # @show norm(C_test - C_true)
     free(A, B, C)
 end
 

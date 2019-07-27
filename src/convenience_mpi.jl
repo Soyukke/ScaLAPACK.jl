@@ -78,7 +78,7 @@ function eigen_hermitian(A::SLArray{T}) where T<:BlasFloat
     NB, _ = Cint.(blocksizes(A))
 
     eigenvalues = Vector{typeof(real(T(0)))}(undef, N)
-    eigenvectors = SLArray(T, proc_grids=(NP, NQ), N, N)
+    eigenvectors = SLMatrix{T}(N, N, proc_grids=(NP, NQ), blocksizes=(NB, NB))
 
     id, nprocs = BLACS.pinfo()
     ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
@@ -134,13 +134,53 @@ function eigen_schur!(A::SLArray{T, 2}) where T<:AbstractFloat
     return WR + im*WI, Z
 end
 
+"""
+    T*x = w*x    # diagonalization x is right eigenvectors
+    y'*T = w*y'  # y is left eigenvectors
+"""
+function eigenvectors_upper_triangular!(A::SLArray{T, 2}, VR::SLArray{T, 2}) where T <: Complex
+    n, N = Cint.(size(A))
+    NP, NQ = Cint.(size(pids(A)))
+    NB, NB2 = Cint.(blocksizes(A))
+    @assert n == N "m != n of matrix"
+    @assert NP == NQ "proccess grid NP != NQ"
 
-function eigen(A::SLMatrix{T}) where T <: BlasFloat
+    id, nprocs = BLACS.pinfo()
+    ic = BLACS.gridinit(BLACS.get(0, 0), 'C', NP, NQ) # process grid column major
+
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+    LOCr_A = numroc(N, NB, myrow, 0, nprow)
+    LOCr_VR = numroc(N, NB, myrow, 0, nprow)
+    LLD_A = max(1, LOCr_A)
+    # Get Array info
+    DESCA = descinit(N, N, NB, NB2, 0, 0, ic, LOCr_A)
+    DESCVR = descinit(N, N, NB, NB2, 0, 0, ic, LOCr_VR)
+    # TODO: work space size is it correct ?
+    pXtrevc!('R', 'B', Bool[true], N, A.localarray, DESCA, Matrix{T}(undef, N, N), DESCVR, VR.localarray, DESCVR, N)
+    # clean up
+    BLACS.gridexit(ic)
+end
+
+"""
+    Input: A
+    pzgehrd_ -> pXhseqr_ -> pXtrevc_
+
+    A = (Q*H*Q') # hessenberg
+    H = Z*T*Z'   # schur
+    T*x = w*x    # diagonalization x is right eigenvectors
+    y'*T = w*y'  # y is left eigenvectors
+
+    T*x = (Z'*H*Z) * x = (Z'*Q'*A*Q*Z) * x = w*x
+    A*(Q*Z*x) = w*(Q*Z*x)
+"""
+function eigen(A::SLMatrix{T1}) where T1 <: BlasFloat
+    # input 
     B = copy(A)
     # B = hess.Q * hess.H * hess.Q'
     hess = hessenberg!(B)
-    # H = xchu.Z * schu.T * schu.Z', T is upper triangular matrix
-    schu = schur!(hess.H)
-    free(hess.H, hess.Q, schu.T, schu.Z)
-    return schu.values
+    # H = schu.Z * schu.T * schu.Z', T is upper triangular matrix
+    schu = schur!(hess.H, hess.Q)
+    # schu.T # upper triangular
+    eigenvectors_upper_triangular!(schu.T, schu.Z)
+    return schu.values, schu.Z
 end
