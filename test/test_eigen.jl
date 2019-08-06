@@ -27,11 +27,15 @@ for elty in (Float32, Float64, ComplexF32, ComplexF64)
     A = SLMatrix{elty}(N, N, proc_grids=(2, 2), blocksizes=(6, 6))
     forlocalpart!(x->rand!(x), A)
     sync(A)
-    A_test = convert(Array, A)
+    A_test = rma!(A) do
+        convert(Array, A)
+    end
 
     # hessenberg -> schur
     eigenvalues, eigenvectors = eigen(A)
-    eigenvectors_ = convert(Array, eigenvectors)
+    eigenvectors_ = rma!(eigenvectors) do
+        convert(Array, eigenvectors)
+    end
 
     eigenvalues_test, eigenvectors_test = eigen(A_test)
 
@@ -64,19 +68,6 @@ for elty in (Float32, Float64, ComplexF32, ComplexF64)
         println("AX - XΛ = ScaLAPACK:$(norm(diff_eq)), LinearAlgebra:$(norm(diff_eq_test))")
     end
     MPI.Barrier(comm)
-
-    # if rank == 0
-    #     eigenvalues_test, _ = LinearAlgebra.eigen(A_test)
-    #     eigenvalues = eigenvalues[sortperm(real(eigenvalues))]
-    #     eigenvalues_test = eigenvalues_test[sortperm(real(eigenvalues_test))]
-
-
-    #     for (e1, e2) in zip(eigenvalues, eigenvalues_test)
-    #         @show e1 e2
-    #         println()
-    #     end
-    # end
-    free(A, eigenvectors)
 end
 
 MPI.Finalize()

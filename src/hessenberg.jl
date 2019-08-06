@@ -20,7 +20,7 @@ function Base.getproperty(F::SLHessenberg, d::Symbol)
     d == :Q && return HessenbergQ(F)
     if d == :H
         H = triu(getfield(F, :factors), -1)
-        sync(H)
+        MPI.Barrier(MPI.COMM_WORLD)
         return H
     end
     return getfield(F, d)

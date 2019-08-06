@@ -50,6 +50,5 @@ function adjoint!(A::SLArray{T}) where T <: BlasFloat
         lA .= C.localarray
     end
     sync(A)
-    free(C)
     return A
 end

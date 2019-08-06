@@ -33,13 +33,17 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
         end
     end
     sync(A)
-    B = convert(Array, A)
+    B = rma!(A) do
+        convert(Array, A)
+    end
 
-    if rank == 0 && debug
-        show(stdout, "text/plain", A)
-        println()
-        show(stdout, "text/plain", B)
-        println()
+    rma!(A) do
+        if rank == 0 && debug
+            show(stdout, "text/plain", A)
+            println()
+            show(stdout, "text/plain", B)
+            println()
+        end
     end
 
     diff_svdvals = norm(svdvals!(A) - svdvals!(B))

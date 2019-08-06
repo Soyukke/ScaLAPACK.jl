@@ -216,14 +216,14 @@ function eigen!(A::SLMatrix{T1}) where T1 <: BlasFloat
     N, _ = size(A)
     # schu.T # upper triangular
     eigenvectors_upper_triangular!(schu.T, schu.Z)
-
-    MPI.Barrier(MPI.COMM_WORLD)
+    MPI.Barrier(A.comm)
     return schu.values, schu.Z
 end
 
 function eigen(A::SLMatrix{T1}) where T1 <: Complex
     # input 
     B = copy(A)
+    MPI.Barrier(A.comm)
     return eigen!(B)
 end
 
@@ -236,7 +236,7 @@ function eigen(A::SLMatrix{T1}) where T1 <: AbstractFloat
     forlocalpart!(A_complex) do lA
         lA .= A.localarray
     end
-    sync(A_complex)
+    MPI.Barrier(A.comm)
     return eigen!(A_complex)
 end
 

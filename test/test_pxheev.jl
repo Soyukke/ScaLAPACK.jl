@@ -40,13 +40,16 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
         end
     end
     sync(A)
-    B = convert(Array, A)
-
-    if rank == 0 && debug
-        show(stdout, "text/plain", A)
-        println()
-        show(stdout, "text/plain", B)
-        println()
+    B = rma!(A) do
+        convert(Array, A)
+    end
+    rma!(A) do
+        if rank == 0 && debug
+            show(stdout, "text/plain", A)
+            println()
+            show(stdout, "text/plain", B)
+            println()
+        end
     end
 
     eigenvalues_A, eigenvectors = eigen_hermitian(A)
@@ -65,8 +68,6 @@ for eltype in [Float32, Float64, ComplexF32, ComplexF64]
         @test diff_error < 1e-4
         # @test all(eigenvalues_A .== typeof(real(eltype(0))).(eigenvalues_B))
     end
-    free(A)
-    free(eigenvectors)
 end
 
 MPI.Finalize()
